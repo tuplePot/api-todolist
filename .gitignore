@@ -40,3 +40,12 @@ yarn-error.log*
 **/*.log
 package-lock.json
 **/*.bun
+.agents
+.claude
+
+.env
+.env.example
+
+README.md
+
+tests
