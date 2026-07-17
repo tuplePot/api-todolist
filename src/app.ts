@@ -11,6 +11,7 @@ import './modules/users/model'
 import { workspacesModule } from './modules/workspaces'
 import { tasksModule } from './modules/tasks'
 import { projectsModule } from './modules/projects'
+import { notesModule } from './modules/notes'
 
 const isProd = process.env.NODE_ENV === 'production'
 
@@ -36,6 +37,7 @@ const app = new Elysia()
       .use(workspacesModule) // /api/workspaces
       .use(projectsModule)   // /api/projects
       .use(tasksModule)      // /api/tasks
+      .use(notesModule)      // /api/notes
   )
 
 export default app
