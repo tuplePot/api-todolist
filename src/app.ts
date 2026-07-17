@@ -19,7 +19,8 @@ const app = new Elysia()
   .use(helmet())
   .use(
     cors({
-      allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key'], origin:
+        '*',
     })
   )
   .use(log.into())
