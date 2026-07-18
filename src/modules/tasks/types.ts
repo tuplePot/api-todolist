@@ -19,6 +19,8 @@ export interface ITask {
   description?: string
   status: TaskStatus
   priority: TaskPriority
+  /** Optional custom marker icon (Iconify name, e.g. "lucide:flag"). */
+  icon?: string | null
   dueDate?: Date | null
   tags: string[]
   workspace: Types.ObjectId

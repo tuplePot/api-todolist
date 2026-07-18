@@ -31,11 +31,14 @@ const recurrenceSchema = t.Object({
 
 // ─── Request schemas ──────────────────────────────────────────────────────────
 
+const nullableIcon = t.Union([t.String({ maxLength: 100 }), t.Null()])
+
 export const taskCreate = t.Object({
   title: t.String({ minLength: 1, maxLength: 255 }),
   description: t.Optional(t.String({ maxLength: 5000 })),
   status: t.Optional(statusEnum),
   priority: t.Optional(priorityEnum),
+  icon: t.Optional(nullableIcon),
   dueDate: t.Optional(nullableDate),
   tags: t.Optional(t.Array(t.String({ maxLength: 50 }))),
   workspace: objectId,
@@ -54,6 +57,7 @@ export const taskUpdate = t.Partial(
     title: t.String({ minLength: 1, maxLength: 255 }),
     description: t.String({ maxLength: 5000 }),
     priority: priorityEnum,
+    icon: nullableIcon,
     dueDate: nullableDate,
     tags: t.Array(t.String({ maxLength: 50 })),
     project: t.Union([objectId, t.Null()]),
@@ -124,6 +128,7 @@ const TaskSchema = new Schema<ITask>(
     description: { type: String, maxlength: 5000 },
     status: { type: String, enum: ['todo', 'in_progress', 'done'], default: 'todo' },
     priority: { type: String, enum: ['low', 'medium', 'high', 'urgent'], default: 'medium' },
+    icon: { type: String, default: null },
     dueDate: { type: Date, default: null },
     tags: { type: [String], default: [] },
     workspace: { type: Schema.Types.ObjectId, ref: 'Workspace', required: true },
