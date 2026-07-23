@@ -33,4 +33,6 @@ export interface ITask {
   isArchived: boolean
   /** Sort key within a board column. Fractional so a move rewrites one doc. */
   position: number
+  /** Custom card color in hex format (e.g. "#FF5733"). */
+  colorTask?: string | null
 }

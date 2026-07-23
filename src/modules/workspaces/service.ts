@@ -1,7 +1,7 @@
 import { Types } from 'mongoose'
 import { Workspace, type WorkspaceCreate, type AddMemberBody } from './model'
 import type { MemberRole } from './types'
-import { Task } from '../tasks/model'
+import { Task } from '../tasks/schema'
 import { ok, fail } from '../../libs/response'
 
 export abstract class WorkspaceService {

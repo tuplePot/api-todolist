@@ -1,4 +1,5 @@
-import { Task, type TaskCreate, type TaskUpdate, type TaskQuery } from './model'
+import { type TaskCreate, type TaskUpdate, type TaskQuery } from './model'
+import { Task } from './schema'
 import type { TaskStatus } from './types'
 import { WorkspaceService } from '../workspaces/service'
 import { Project } from '../projects/model'

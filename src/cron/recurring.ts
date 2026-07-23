@@ -1,5 +1,5 @@
 import cron from 'node-cron'
-import { Task } from '../modules/tasks/model'
+import { Task } from '../modules/tasks/schema'
 import { ActivityService } from '../modules/activity/service'
 import { connectDB } from '../libs/mongoose'
 import { log } from '../libs/logger'
