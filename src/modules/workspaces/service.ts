@@ -100,6 +100,26 @@ export abstract class WorkspaceService {
     return ok(workspace, 'Member removed')
   }
 
+  // ─── Status config ────────────────────────────────────────────────────────────
+
+  static async updateStatusConfig(
+    workspaceId: string,
+    userId: string,
+    statuses: { id: string; label: string; enabled: boolean; position: number }[]
+  ) {
+    const workspace = await Workspace.findById(workspaceId)
+    if (!workspace) return fail(404, 'Workspace not found')
+
+    const actor = workspace.members.find((m) => m.user.toString() === userId)
+    if (!actor) return fail(403, 'You are not a member of this workspace')
+    if (actor.role !== 'owner' && actor.role !== 'admin')
+      return fail(403, 'Only owner or admin can update status config')
+
+    workspace.statusConfig = statuses as any
+    await workspace.save()
+    return ok(workspace, 'Status config updated')
+  }
+
   // ─── Dashboard / summary ──────────────────────────────────────────────────────
 
   static async summary(workspaceId: string, userId: string) {

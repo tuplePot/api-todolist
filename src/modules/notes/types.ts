@@ -8,5 +8,6 @@ export interface INote {
   tags: string[]
   isPinned: boolean
   color: NoteColor
+  project?: Types.ObjectId | null
   createdBy: Types.ObjectId
 }

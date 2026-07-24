@@ -1,10 +1,13 @@
 {
   "name": "api-todolist-personal",
   "version": "1.0.50",
+  "type": "module",
   "scripts": {
     "test": "bun test",
     "dev": "bun run --watch src/index.ts",
-    "start": "bun run src/index.ts"
+    "start": "bun run src/index.ts",
+    "lint": "eslint src/",
+    "build": "bun run lint && bun build src/index.ts --outdir dist --target bun"
   },
   "dependencies": {
     "@bogeychan/elysia-logger": "^0.1.10",
@@ -19,7 +22,10 @@
   },
   "devDependencies": {
     "@types/node-cron": "^3.0.11",
-    "bun-types": "latest"
+    "@typescript-eslint/eslint-plugin": "^8.65.0",
+    "@typescript-eslint/parser": "^8.65.0",
+    "bun-types": "latest",
+    "eslint": "^10.7.0"
   },
   "module": "src/index.js"
 }

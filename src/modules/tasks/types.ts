@@ -1,8 +1,9 @@
 import type { Types } from 'mongoose'
 
-export type TaskStatus = 'todo' | 'in_progress' | 'done'
+export type TaskStatus = 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done' | 'cancelled'
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent'
 export type RecurrenceType = 'none' | 'daily' | 'weekly' | 'monthly'
+export type IssueType = 'feature' | 'bug' | 'task' | 'chore'
 
 export interface IChecklistItem {
   text: string
@@ -19,6 +20,7 @@ export interface ITask {
   description?: string
   status: TaskStatus
   priority: TaskPriority
+  issueType: IssueType
   /** Optional custom marker icon (Iconify name, e.g. "lucide:flag"). */
   icon?: string | null
   dueDate?: Date | null

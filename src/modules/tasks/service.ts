@@ -2,9 +2,10 @@ import { type TaskCreate, type TaskUpdate, type TaskQuery } from './model'
 import { Task } from './schema'
 import type { TaskStatus } from './types'
 import { WorkspaceService } from '../workspaces/service'
-import { Project } from '../projects/model'
+// import { Project } from '../projects/model'
 import { ActivityService } from '../activity/service'
 import { ok, fail } from '../../libs/response'
+import { Project } from '../projects/schema'
 
 const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
@@ -74,6 +75,7 @@ export abstract class TaskService {
 
     if (query.status) filter.status = query.status
     if (query.priority) filter.priority = query.priority
+    if (query.issueType) filter.issueType = query.issueType
     if (query.tag) filter.tags = query.tag
     if (query.assignedTo) filter.assignedTo = query.assignedTo
     if (query.parentTask) filter.parentTask = query.parentTask

@@ -21,6 +21,7 @@ export const noteCreate = t.Object({
   tags: t.Optional(t.Array(t.String({ maxLength: 50 }))),
   isPinned: t.Optional(t.Boolean()),
   color: t.Optional(nullableColor),
+  project: t.Optional(t.Union([t.String(), t.Null()])),
 })
 
 export const noteUpdate = t.Partial(
@@ -30,6 +31,7 @@ export const noteUpdate = t.Partial(
     tags: t.Array(t.String({ maxLength: 50 })),
     isPinned: t.Boolean(),
     color: nullableColor,
+    project: t.Union([t.String(), t.Null()]),
   })
 )
 
@@ -37,6 +39,7 @@ export const noteQuery = t.Object({
   tags: t.Optional(t.String()),
   isPinned: t.Optional(t.BooleanString()),
   search: t.Optional(t.String()),
+  project: t.Optional(t.String()),
   page: t.Optional(t.Numeric({ minimum: 1 })),
   limit: t.Optional(t.Numeric({ minimum: 1, maximum: 200 })),
   sortBy: t.Optional(
@@ -66,6 +69,7 @@ const NoteSchema = new Schema<INote>(
       enum: ['yellow', 'blue', 'green', 'pink', 'purple', null],
       default: null,
     },
+    project: { type: Schema.Types.ObjectId, ref: 'Project', default: null },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   },
   { timestamps: true }
@@ -74,6 +78,7 @@ const NoteSchema = new Schema<INote>(
 // Queries are always scoped to a single user, so the first index covers everything.
 NoteSchema.index({ createdBy: 1, isPinned: -1, updatedAt: -1 })
 NoteSchema.index({ createdBy: 1, tags: 1 })
+NoteSchema.index({ createdBy: 1, project: 1 })
 NoteSchema.index({ title: 'text', content: 'text' })
 
 export const Note = mongoose.model<INote>('Note', NoteSchema)

@@ -1,6 +1,6 @@
 import { t } from 'elysia'
 import { objectId } from '../../libs/schema'
-import { recurrenceTypeEnum, statusEnum, priorityEnum } from './enum'
+import { recurrenceTypeEnum, statusEnum, priorityEnum, issueTypeEnum } from './enum'
 
  
 
@@ -23,6 +23,7 @@ export const taskCreate = t.Object({
   description: t.Optional(t.String({ maxLength: 5000 })),
   status: t.Optional(statusEnum),
   priority: t.Optional(priorityEnum),
+  issueType: t.Optional(issueTypeEnum),
   icon: t.Optional(nullableIcon),
   dueDate: t.Optional(nullableDate),
   tags: t.Optional(t.Array(t.String({ maxLength: 50 }))),
@@ -43,6 +44,7 @@ export const taskUpdate = t.Partial(
     title: t.String({ minLength: 1, maxLength: 255 }),
     description: t.String({ maxLength: 5000 }),
     priority: priorityEnum,
+    issueType: issueTypeEnum,
     icon: nullableIcon,
     dueDate: nullableDate,
     tags: t.Array(t.String({ maxLength: 50 })),
@@ -68,6 +70,7 @@ export const taskQuery = t.Object({
   project: t.Optional(objectId),
   status: t.Optional(statusEnum),
   priority: t.Optional(priorityEnum),
+  issueType: t.Optional(issueTypeEnum),
   tag: t.Optional(t.String()),
   assignedTo: t.Optional(objectId),
   dueBefore: t.Optional(t.String({ format: 'date-time' })),

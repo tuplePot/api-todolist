@@ -13,8 +13,17 @@ const TaskSchema = new Schema<ITask>(
   {
     title: { type: String, required: true, maxlength: 255 },
     description: { type: String, maxlength: 5000 },
-    status: { type: String, enum: ['todo', 'in_progress', 'done'], default: 'todo' },
+    status: {
+      type: String,
+      enum: ['backlog', 'todo', 'in_progress', 'in_review', 'done', 'cancelled'],
+      default: 'todo',
+    },
     priority: { type: String, enum: ['low', 'medium', 'high', 'urgent'], default: 'medium' },
+    issueType: {
+      type: String,
+      enum: ['feature', 'bug', 'task', 'chore'],
+      default: 'task',
+    },
     icon: { type: String, default: null },
     dueDate: { type: Date, default: null },
     tags: { type: [String], default: [] },

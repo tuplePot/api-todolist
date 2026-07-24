@@ -14,6 +14,7 @@ export abstract class NoteService {
       tags: data.tags ?? [],
       isPinned: data.isPinned ?? false,
       color: data.color ?? null,
+      project: data.project ?? null,
       createdBy: userId,
     })
     return ok(note, 'Note created')
@@ -25,6 +26,10 @@ export abstract class NoteService {
     const page = query.page ?? 1
     const limit = query.limit ?? 50
     const filter: Record<string, unknown> = { createdBy: userId }
+
+    if (query.project !== undefined) {
+      filter.project = query.project === 'null' ? null : query.project
+    }
 
     if (query.isPinned !== undefined) filter.isPinned = query.isPinned
 

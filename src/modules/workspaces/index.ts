@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia'
-import { workspaceCreate, addMemberBody } from './model'
+import { workspaceCreate, addMemberBody, statusConfigBody } from './model'
 import { WorkspaceService } from './service'
 import { guard } from '../../libs/guard'
 import { objectId, objectIdParam } from '../../libs/schema'
@@ -14,6 +14,12 @@ export const workspacesModule = new Elysia({ prefix: '/workspaces' })
         '/:id/summary',
         ({ user, params: { id } }) => WorkspaceService.summary(id, user.sub),
         { params: objectIdParam }
+      )
+      .patch(
+        '/:id/status-config',
+        ({ user, params: { id }, body }) =>
+          WorkspaceService.updateStatusConfig(id, user.sub, body.statuses),
+        { params: objectIdParam, body: statusConfigBody }
       )
       .post(
         '/:id/members',

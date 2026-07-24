@@ -1,6 +1,7 @@
-import { Project, type ProjectCreate, type ProjectUpdate, type ProjectQuery } from './model'
+import {  type ProjectCreate, type ProjectUpdate, type ProjectQuery } from './model'
 import { WorkspaceService } from '../workspaces/service'
 import { ok, fail } from '../../libs/response'
+import { Project } from './schema'
 
 export abstract class ProjectService {
   /** Fetch a project and verify the caller has access to its workspace. */
