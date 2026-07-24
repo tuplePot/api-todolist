@@ -81,7 +81,7 @@ const WorkspaceSchema = new Schema<IWorkspace>(
     type: { type: String, required: true, enum: ['personal', 'team'], default: 'team' },
     owner: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     members: { type: [MemberSchema], default: [] },
-    statusConfig: { type: [StatusEntrySchema], default: DEFAULT_STATUS_CONFIG },
+    statusConfig: { type: [StatusEntrySchema], default: DEFAULT_STATUS_CONFIG } as any,
   },
   { timestamps: true }
 )
