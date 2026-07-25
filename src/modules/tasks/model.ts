@@ -19,7 +19,7 @@ const nullableHexColor = t.Union([
 ])
 
 export const taskCreate = t.Object({
-  title: t.String({ minLength: 1, maxLength: 255 }),
+  title: t.String({ minLength: 1, maxLength: 1000 }),
   description: t.Optional(t.String({ maxLength: 5000 })),
   status: t.Optional(statusEnum),
   priority: t.Optional(priorityEnum),
@@ -41,7 +41,7 @@ export const taskCreate = t.Object({
 
 export const taskUpdate = t.Partial(
   t.Object({
-    title: t.String({ minLength: 1, maxLength: 255 }),
+    title: t.String({ minLength: 1, maxLength: 1000 }),
     description: t.String({ maxLength: 5000 }),
     priority: priorityEnum,
     issueType: issueTypeEnum,

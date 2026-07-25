@@ -11,7 +11,7 @@ const ChecklistItemSchema = new Schema(
 
 const TaskSchema = new Schema<ITask>(
   {
-    title: { type: String, required: true, maxlength: 255 },
+    title: { type: String, required: true, maxlength: 1000 },
     description: { type: String, maxlength: 5000 },
     status: {
       type: String,
