@@ -1,7 +1,7 @@
 import { Elysia } from 'elysia'
 import { cors } from '@elysiajs/cors'
 import { helmet } from 'elysia-helmet'
-import { connectDB, mongoosePlugin, checkConnection } from './libs/mongoose'
+import { connectDB, mongoosePlugin } from './libs/mongoose'
 import { log } from './libs/logger'
 import { docsModule } from './modules/docs'
 
@@ -13,6 +13,7 @@ import { tasksModule } from './modules/tasks'
 import { projectsModule } from './modules/projects'
 import { notesModule } from './modules/notes'
 import { glossaryModule } from './modules/glossary'
+import { qaModule } from './modules/qa'
 
 const isProd = process.env.NODE_ENV === 'production'
 
@@ -33,7 +34,7 @@ const app = new Elysia()
     set.status = 404
     return null
   })
-  .get('/health', () => ({ success: true, message: 'ok', data: checkConnection() }))
+  .get('/health', () => ({ status: 'ok', service: 'memoria', timestamp: new Date().toISOString() }))
   .group('/api', (app) =>
     app
       .use(workspacesModule) // /api/workspaces
@@ -41,6 +42,7 @@ const app = new Elysia()
       .use(tasksModule)      // /api/tasks
       .use(notesModule)      // /api/notes
       .use(glossaryModule)   // /api/glossary
+      .use(qaModule)         // /api/qa
   )
 
 export default app
