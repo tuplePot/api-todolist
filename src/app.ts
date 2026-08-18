@@ -14,6 +14,7 @@ import { projectsModule } from './modules/projects'
 import { notesModule } from './modules/notes'
 import { glossaryModule } from './modules/glossary'
 import { qaModule } from './modules/qa'
+import { changelogsModule } from './modules/changelogs'
 
 const isProd = process.env.NODE_ENV === 'production'
 
@@ -40,9 +41,10 @@ const app = new Elysia()
       .use(workspacesModule) // /api/workspaces
       .use(projectsModule)   // /api/projects
       .use(tasksModule)      // /api/tasks
-      .use(notesModule)      // /api/notes
-      .use(glossaryModule)   // /api/glossary
-      .use(qaModule)         // /api/qa
+      .use(notesModule)       // /api/notes
+      .use(glossaryModule)    // /api/glossary
+      .use(qaModule)          // /api/qa
+      .use(changelogsModule)  // /api/changelogs
   )
 
 export default app

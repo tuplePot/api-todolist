@@ -1,0 +1,15 @@
+# Dev image for api-todolist (Elysia + Bun with hot-reload)
+FROM oven/bun:1
+
+WORKDIR /app
+
+# Install dependencies
+COPY package.json bun.lock ./
+RUN bun install
+
+# Source is bind-mounted at runtime for hot-reload
+COPY . .
+
+EXPOSE 5000
+
+CMD ["bun", "run", "dev"]
