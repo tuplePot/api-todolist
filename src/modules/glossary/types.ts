@@ -6,6 +6,7 @@ export interface IGlossaryEntry {
   term: string
   definition: string
   category?: string
+  color?: string
   sourceNote?: string
   confidence: ConfidenceLevel
   createdBy: Types.ObjectId

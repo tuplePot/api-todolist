@@ -7,6 +7,7 @@ export abstract class GlossaryService {
     const entry = await GlossaryEntry.create({
       term: data.term,
       definition: data.definition,
+      color: data.color ?? undefined,
       category: data.category ?? undefined,
       sourceNote: data.sourceNote ?? undefined,
       confidence: data.confidence ?? 'new',
