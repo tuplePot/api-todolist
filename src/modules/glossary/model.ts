@@ -23,7 +23,7 @@ export const glossaryUpdate = t.Partial(
     confidence: confidenceEnum,
   })
 )
-// test log
+// test tokenn test generate
 export const glossaryQuery = t.Object({
   search: t.Optional(t.String()),
   category: t.Optional(t.String({ maxLength: 100 })),
