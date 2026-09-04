@@ -55,6 +55,8 @@ TaskSchema.index({ project: 1, status: 1 })
 TaskSchema.index({ project: 1, isArchived: 1 })
 TaskSchema.index({ assignedTo: 1 })
 TaskSchema.index({ dueDate: 1 })
+TaskSchema.index({ project: 1, createdAt: 1 })
+TaskSchema.index({ workspace: 1, createdAt: 1 })
 TaskSchema.index({ parentTask: 1 })
 TaskSchema.index({ title: 'text', description: 'text' })
 

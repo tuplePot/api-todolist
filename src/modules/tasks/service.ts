@@ -88,6 +88,27 @@ export abstract class TaskService {
       filter.dueDate = range
     }
 
+    if (query.createdAfter || query.createdBefore) {
+      if (query.olderMode && query.createdBefore) {
+        const cutoff = new Date(query.createdBefore)
+        filter.$or = [
+          { status: { $in: ['done', 'cancelled'] }, createdAt: { $lte: cutoff } },
+          { status: { $nin: ['done', 'cancelled'] } },
+        ]
+      } else if (query.activeMode && query.createdAfter) {
+        const cutoff = new Date(query.createdAfter)
+        filter.$or = [
+          { status: { $in: ['done', 'cancelled'] }, createdAt: { $gte: cutoff } },
+          { status: { $nin: ['done', 'cancelled'] } },
+        ]
+      } else {
+        const range: Record<string, Date> = {}
+        if (query.createdAfter) range.$gte = new Date(query.createdAfter)
+        if (query.createdBefore) range.$lte = new Date(query.createdBefore)
+        filter.createdAt = range
+      }
+    }
+
     if (query.search) {
       const rx = new RegExp(escapeRegex(query.search), 'i')
       filter.$or = [{ title: rx }, { description: rx }]
