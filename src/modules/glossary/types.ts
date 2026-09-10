@@ -1,13 +1,13 @@
-import type { Types } from 'mongoose'
+import type { Types } from "mongoose";
 
-export type ConfidenceLevel = 'new' | 'learning' | 'known'
+export type ConfidenceLevel = "new" | "learning" | "known";
 
 export interface IGlossaryEntry {
-  term: string
-  definition: string
-  category?: string
-  color?: string
-  sourceNote?: string
-  confidence: ConfidenceLevel
-  createdBy: Types.ObjectId
+	term: string;
+	definition: string;
+	category?: string;
+	color?: string;
+	sourceNote?: string;
+	confidence: ConfidenceLevel;
+	createdBy: Types.ObjectId;
 }

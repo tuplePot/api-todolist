@@ -1,13 +1,13 @@
-import type { Types } from 'mongoose'
+import type { Types } from "mongoose";
 
-export type NoteColor = 'yellow' | 'blue' | 'green' | 'pink' | 'purple' | null
+export type NoteColor = "yellow" | "blue" | "green" | "pink" | "purple" | null;
 
 export interface INote {
-  title: string
-  content: string
-  tags: string[]
-  isPinned: boolean
-  color: NoteColor
-  project?: Types.ObjectId | null
-  createdBy: Types.ObjectId
+	title: string;
+	content: string;
+	tags: string[];
+	isPinned: boolean;
+	color: NoteColor;
+	project?: Types.ObjectId | null;
+	createdBy: Types.ObjectId;
 }

@@ -1,59 +1,65 @@
-import { Changelog } from './model'
-import type { ChangelogCreate, ChangelogUpdate, ChangelogQuery } from './model'
-import { ok, fail } from '../../libs/response'
+import { fail, ok } from "../../libs/response";
+import type { ChangelogCreate, ChangelogQuery, ChangelogUpdate } from "./model";
+import { Changelog } from "./model";
 
 export abstract class ChangelogService {
-  // ─── Create ────────────────────────────────────────────────────────────────
+	// ─── Create ────────────────────────────────────────────────────────────────
 
-  static async create(userId: string, data: ChangelogCreate) {
-    const changelog = await Changelog.create({
-      version: data.version.trim(),
-      content: data.content,
-      project: data.project,
-      createdBy: userId,
-      releasedAt: data.releasedAt ? new Date(data.releasedAt) : null,
-    })
-    return ok(changelog, 'Changelog entry created')
-  }
+	static async create(userId: string, data: ChangelogCreate) {
+		const changelog = await Changelog.create({
+			version: data.version.trim(),
+			content: data.content,
+			project: data.project,
+			createdBy: userId,
+			releasedAt: data.releasedAt ? new Date(data.releasedAt) : null,
+		});
+		return ok(changelog, "Changelog entry created");
+	}
 
-  // ─── Read ──────────────────────────────────────────────────────────────────
+	// ─── Read ──────────────────────────────────────────────────────────────────
 
-  static async findAll(userId: string, query: ChangelogQuery) {
-    const [changelogs, total] = await Promise.all([
-      Changelog.find({ project: query.project, createdBy: userId })
-        .sort({ createdAt: -1 })
-        .lean(),
-      Changelog.countDocuments({ project: query.project, createdBy: userId }),
-    ])
-    return ok({ changelogs, total }, 'Changelogs fetched')
-  }
+	static async findAll(userId: string, query: ChangelogQuery) {
+		const [changelogs, total] = await Promise.all([
+			Changelog.find({ project: query.project, createdBy: userId })
+				.sort({ createdAt: -1 })
+				.lean(),
+			Changelog.countDocuments({ project: query.project, createdBy: userId }),
+		]);
+		return ok({ changelogs, total }, "Changelogs fetched");
+	}
 
-  static async findById(id: string, userId: string) {
-    const changelog = await Changelog.findOne({ _id: id, createdBy: userId }).lean()
-    if (!changelog) return fail(404, 'Changelog entry not found')
-    return ok(changelog, 'Changelog entry fetched')
-  }
+	static async findById(id: string, userId: string) {
+		const changelog = await Changelog.findOne({
+			_id: id,
+			createdBy: userId,
+		}).lean();
+		if (!changelog) return fail(404, "Changelog entry not found");
+		return ok(changelog, "Changelog entry fetched");
+	}
 
-  // ─── Update ────────────────────────────────────────────────────────────────
+	// ─── Update ────────────────────────────────────────────────────────────────
 
-  static async update(id: string, userId: string, data: ChangelogUpdate) {
-    const changelog = await Changelog.findOne({ _id: id, createdBy: userId })
-    if (!changelog) return fail(404, 'Changelog entry not found')
+	static async update(id: string, userId: string, data: ChangelogUpdate) {
+		const changelog = await Changelog.findOne({ _id: id, createdBy: userId });
+		if (!changelog) return fail(404, "Changelog entry not found");
 
-    if (data.version !== undefined) changelog.version = data.version.trim()
-    if (data.content !== undefined) changelog.content = data.content
-    if ('releasedAt' in data)
-      changelog.releasedAt = data.releasedAt ? new Date(data.releasedAt) : null
+		if (data.version !== undefined) changelog.version = data.version.trim();
+		if (data.content !== undefined) changelog.content = data.content;
+		if ("releasedAt" in data)
+			changelog.releasedAt = data.releasedAt ? new Date(data.releasedAt) : null;
 
-    await changelog.save()
-    return ok(changelog, 'Changelog entry updated')
-  }
+		await changelog.save();
+		return ok(changelog, "Changelog entry updated");
+	}
 
-  // ─── Delete ────────────────────────────────────────────────────────────────
+	// ─── Delete ────────────────────────────────────────────────────────────────
 
-  static async remove(id: string, userId: string) {
-    const changelog = await Changelog.findOneAndDelete({ _id: id, createdBy: userId }).lean()
-    if (!changelog) return fail(404, 'Changelog entry not found')
-    return ok(changelog, 'Changelog entry deleted')
-  }
+	static async remove(id: string, userId: string) {
+		const changelog = await Changelog.findOneAndDelete({
+			_id: id,
+			createdBy: userId,
+		}).lean();
+		if (!changelog) return fail(404, "Changelog entry not found");
+		return ok(changelog, "Changelog entry deleted");
+	}
 }

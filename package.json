@@ -25,10 +25,7 @@
   "devDependencies": {
     "@biomejs/biome": "2.5.13",
     "@types/node-cron": "^3.0.11",
-    "@typescript-eslint/eslint-plugin": "^8.65.0",
-    "@typescript-eslint/parser": "^8.65.0",
-    "bun-types": "latest",
-    "eslint": "^10.7.0"
+    "bun-types": "latest"
   },
   "module": "src/index.js"
 }

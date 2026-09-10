@@ -1,34 +1,39 @@
-import { Elysia, t } from 'elysia'
-import { workspaceCreate, addMemberBody, statusConfigBody } from './model'
-import { WorkspaceService } from './service'
-import { guard } from '../../libs/guard'
-import { objectId, objectIdParam } from '../../libs/schema'
+import { Elysia, t } from "elysia";
+import { guard } from "../../libs/guard";
+import { objectId, objectIdParam } from "../../libs/schema";
+import { addMemberBody, statusConfigBody, workspaceCreate } from "./model";
+import { WorkspaceService } from "./service";
 
-export const workspacesModule = new Elysia({ prefix: '/workspaces' })
-  .guard({}, (app) =>
-    app
-      .use(guard)
-      .get('/', ({ user }) => WorkspaceService.findAllForUser(user.sub))
-      .post('/', ({ user, body }) => WorkspaceService.create(user.sub, body), { body: workspaceCreate })
-      .get(
-        '/:id/summary',
-        ({ user, params: { id } }) => WorkspaceService.summary(id, user.sub),
-        { params: objectIdParam }
-      )
-      .patch(
-        '/:id/status-config',
-        ({ user, params: { id }, body }) =>
-          WorkspaceService.updateStatusConfig(id, user.sub, body.statuses),
-        { params: objectIdParam, body: statusConfigBody }
-      )
-      .post(
-        '/:id/members',
-        ({ user, params: { id }, body }) => WorkspaceService.addMember(id, user.sub, body),
-        { params: objectIdParam, body: addMemberBody }
-      )
-      .delete(
-        '/:id/members/:userId',
-        ({ user, params: { id, userId } }) => WorkspaceService.removeMember(id, user.sub, userId),
-        { params: t.Object({ id: objectId, userId: objectId }) }
-      )
-  )
+export const workspacesModule = new Elysia({ prefix: "/workspaces" }).guard(
+	{},
+	(app) =>
+		app
+			.use(guard)
+			.get("/", ({ user }) => WorkspaceService.findAllForUser(user.sub))
+			.post("/", ({ user, body }) => WorkspaceService.create(user.sub, body), {
+				body: workspaceCreate,
+			})
+			.get(
+				"/:id/summary",
+				({ user, params: { id } }) => WorkspaceService.summary(id, user.sub),
+				{ params: objectIdParam },
+			)
+			.patch(
+				"/:id/status-config",
+				({ user, params: { id }, body }) =>
+					WorkspaceService.updateStatusConfig(id, user.sub, body.statuses),
+				{ params: objectIdParam, body: statusConfigBody },
+			)
+			.post(
+				"/:id/members",
+				({ user, params: { id }, body }) =>
+					WorkspaceService.addMember(id, user.sub, body),
+				{ params: objectIdParam, body: addMemberBody },
+			)
+			.delete(
+				"/:id/members/:userId",
+				({ user, params: { id, userId } }) =>
+					WorkspaceService.removeMember(id, user.sub, userId),
+				{ params: t.Object({ id: objectId, userId: objectId }) },
+			),
+);
