@@ -96,11 +96,8 @@ export abstract class TaskService {
           { status: { $nin: ['done', 'cancelled'] } },
         ]
       } else if (query.activeMode && query.createdAfter) {
-        const cutoff = new Date(query.createdAfter)
-        filter.$or = [
-          { status: { $in: ['done', 'cancelled'] }, createdAt: { $gte: cutoff } },
-          { status: { $nin: ['done', 'cancelled'] } },
-        ]
+        filter.status = { $nin: ['done', 'cancelled'] }
+        filter.createdAt = { $gte: new Date(query.createdAfter) }
       } else {
         const range: Record<string, Date> = {}
         if (query.createdAfter) range.$gte = new Date(query.createdAfter)
