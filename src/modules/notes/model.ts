@@ -5,7 +5,13 @@ import type { INote } from "./types";
 
 // ─── TypeBox schemas ──────────────────────────────────────────────────────────
 
-const colorEnum = t.Union([
+// The frontend now stores hex colors straight from a color picker (e.g. "#facc15").
+// Legacy named colors are still accepted so old notes remain editable.
+const hexColor = t.String({
+	pattern: "^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$",
+});
+
+const legacyColor = t.Union([
 	t.Literal("yellow"),
 	t.Literal("blue"),
 	t.Literal("green"),
@@ -13,7 +19,7 @@ const colorEnum = t.Union([
 	t.Literal("purple"),
 ]);
 
-const nullableColor = t.Union([colorEnum, t.Null()]);
+const nullableColor = t.Union([hexColor, legacyColor, t.Null()]);
 
 export const noteCreate = t.Object({
 	title: t.String({ minLength: 1, maxLength: 255 }),
@@ -64,11 +70,8 @@ const NoteSchema = new Schema<INote>(
 		content: { type: String, default: "", maxlength: 50000 },
 		tags: { type: [String], default: [] },
 		isPinned: { type: Boolean, default: false },
-		color: {
-			type: String,
-			enum: ["yellow", "blue", "green", "pink", "purple", null],
-			default: null,
-		},
+		// Hex color from the picker (e.g. "#facc15"); legacy named colors also allowed.
+		color: { type: String, default: null },
 		project: { type: Schema.Types.ObjectId, ref: "Project", default: null },
 		createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
 	},

@@ -1,6 +1,7 @@
 import type { Types } from "mongoose";
 
-export type NoteColor = "yellow" | "blue" | "green" | "pink" | "purple" | null;
+// Hex color (e.g. "#facc15") or a legacy named color, or null for no color.
+export type NoteColor = string | null;
 
 export interface INote {
 	title: string;
