@@ -3,7 +3,7 @@ import { fail, ok } from "../../libs/response";
 import { ActivityService } from "../activity/service";
 import { Project } from "../projects/schema";
 import { WorkspaceService } from "../workspaces/service";
-import { type TaskCreate, type TaskQuery, type TaskUpdate } from "./model";
+import { type TaskCreate, type TaskQuery, type TaskUpdate, type TodayQuery } from "./model";
 import { Task } from "./schema";
 import type { TaskStatus } from "./types";
 
@@ -287,6 +287,94 @@ export abstract class TaskService {
 			});
 		}
 		return ok(task, "Task moved");
+	}
+
+	static async findToday(userId: string, query: TodayQuery) {
+		const accessFilter: Record<string, unknown> = {};
+
+		if (query.project) {
+			const project = await Project.findById(query.project).lean();
+			if (!project) return fail(404, "Project not found");
+			const role = await WorkspaceService.membershipRole(
+				project.workspace.toString(),
+				userId,
+			);
+			if (!role) return fail(403, "You do not have access to this project");
+			accessFilter.project = query.project;
+			accessFilter.workspace = project.workspace;
+		} else if (query.workspace) {
+			const role = await WorkspaceService.membershipRole(
+				query.workspace,
+				userId,
+			);
+			if (!role) return fail(403, "You do not have access to this workspace");
+			accessFilter.workspace = query.workspace;
+		} else {
+			accessFilter.workspace = {
+				$in: await WorkspaceService.memberWorkspaceIds(userId),
+			};
+		}
+
+		const now = new Date();
+		const todayStart = new Date(
+			now.getFullYear(),
+			now.getMonth(),
+			now.getDate(),
+			0,
+			0,
+			0,
+			0,
+		);
+		const todayEnd = new Date(
+			now.getFullYear(),
+			now.getMonth(),
+			now.getDate(),
+			23,
+			59,
+			59,
+			999,
+		);
+
+		const base = { ...accessFilter, isArchived: false };
+		const populate = [
+			{ path: "assignedTo", select: "name email" },
+			{ path: "project", select: "name color" },
+		];
+
+		const [overdue, today, completed] = await Promise.all([
+			Task.find({
+				...base,
+				dueDate: { $lt: todayStart },
+				status: { $nin: ["done", "cancelled"] },
+			})
+				.sort({ dueDate: 1, _id: 1 })
+				.populate(populate)
+				.lean(),
+			Task.find({
+				...base,
+				dueDate: { $gte: todayStart, $lte: todayEnd },
+				status: { $nin: ["done", "cancelled"] },
+			})
+				.sort({ position: 1, _id: 1 })
+				.populate(populate)
+				.lean(),
+			Task.find({
+				...base,
+				dueDate: { $gte: todayStart, $lte: todayEnd },
+				status: "done",
+			})
+				.sort({ updatedAt: -1, _id: 1 })
+				.populate(populate)
+				.lean(),
+		]);
+
+		const counts = {
+			total: overdue.length + today.length + completed.length,
+			completed: completed.length,
+			overdue: overdue.length,
+		};
+
+		return ok({ overdue, today, completed, counts }, "Today tasks fetched");
 	}
 
 	static async remove(id: string, userId: string) {

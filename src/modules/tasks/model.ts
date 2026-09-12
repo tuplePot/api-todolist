@@ -110,6 +110,11 @@ export const taskQuery = t.Object({
 	order: t.Optional(t.Union([t.Literal("asc"), t.Literal("desc")])),
 });
 
+export const todayQuery = t.Object({
+	workspace: t.Optional(objectId),
+	project: t.Optional(objectId),
+});
+
 export type TaskCreate = typeof taskCreate.static;
 export type TaskUpdate = typeof taskUpdate.static;
 export type StatusBody = typeof statusBody.static;
@@ -117,3 +122,4 @@ export type MoveBody = typeof moveBody.static;
 export type ChecklistAddBody = typeof checklistAddBody.static;
 export type ChecklistUpdateBody = typeof checklistUpdateBody.static;
 export type TaskQuery = typeof taskQuery.static;
+export type TodayQuery = typeof todayQuery.static;

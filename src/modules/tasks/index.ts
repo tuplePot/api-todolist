@@ -9,6 +9,7 @@ import {
 	taskCreate,
 	taskQuery,
 	taskUpdate,
+	todayQuery,
 } from "./model";
 import { TaskService } from "./service";
 
@@ -19,6 +20,11 @@ export const tasksModule = new Elysia({ prefix: "/tasks" }).guard({}, (app) =>
 		.get("/", ({ user, query }) => TaskService.findAll(user.sub, query), {
 			query: taskQuery,
 		})
+		.get(
+			"/today",
+			({ user, query }) => TaskService.findToday(user.sub, query),
+			{ query: todayQuery },
+		)
 		.post("/", ({ user, body }) => TaskService.create(user.sub, body), {
 			body: taskCreate,
 		})
