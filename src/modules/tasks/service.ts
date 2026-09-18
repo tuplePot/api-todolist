@@ -52,7 +52,9 @@ export abstract class TaskService {
 		}
 
 		const task = await Task.create({ ...data, createdBy: userId });
-		await ActivityService.record(task.id, userId, "created", {
+		// Fire-and-forget: the audit write must not hold up the create response.
+		// `record` already swallows & logs its own errors, so this never rejects.
+		void ActivityService.record(task.id, userId, "created", {
 			title: task.title,
 		});
 		return ok(task, "Task created");

@@ -13,6 +13,7 @@ import { glossaryModule } from "./modules/glossary";
 import { notesModule } from "./modules/notes";
 import { projectsModule } from "./modules/projects";
 import { qaModule } from "./modules/qa";
+import { sharedNotesModule } from "./modules/shared-notes";
 import { tasksModule } from "./modules/tasks";
 import { workspacesModule } from "./modules/workspaces";
 
@@ -50,6 +51,7 @@ const app = new Elysia()
 				.use(notesModule) // /api/notes
 				.use(glossaryModule) // /api/glossary
 				.use(qaModule) // /api/qa
+				.use(sharedNotesModule) // /api/shared-notes
 				.use(changelogsModule), // /api/changelogs
 	);
 
