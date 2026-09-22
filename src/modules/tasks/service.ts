@@ -36,12 +36,22 @@ export abstract class TaskService {
 				return fail(400, "Assignee is not a member of this workspace");
 		}
 
+		let ticketNumber: number | undefined;
+		let ticketKey: string | undefined;
+
 		if (data.project) {
 			const project = await Project.findById(data.project).lean();
 			if (!project) return fail(400, "Project not found");
 			if (project.workspace.toString() !== data.workspace)
 				return fail(400, "Project belongs to a different workspace");
 			if (project.isArchived) return fail(400, "Project is archived");
+
+			const last = await Task.findOne({ project: data.project })
+				.sort({ ticketNumber: -1 })
+				.select("ticketNumber")
+				.lean();
+			ticketNumber = (last?.ticketNumber ?? 0) + 1;
+			ticketKey = `${project.key}-${ticketNumber}`;
 		}
 
 		if (data.parentTask) {
@@ -51,7 +61,11 @@ export abstract class TaskService {
 				return fail(400, "Parent task belongs to a different workspace");
 		}
 
-		const task = await Task.create({ ...data, createdBy: userId });
+		const task = await Task.create({
+			...data,
+			createdBy: userId,
+			...(ticketNumber !== undefined && { ticketNumber, ticketKey }),
+		});
 		// Fire-and-forget: the audit write must not hold up the create response.
 		// `record` already swallows & logs its own errors, so this never rejects.
 		void ActivityService.record(task.id, userId, "created", {
@@ -109,16 +123,14 @@ export abstract class TaskService {
 
 		if (query.createdAfter || query.createdBefore) {
 			if (query.olderMode && query.createdBefore) {
+				// Older board: tasks created before the cutoff, excluding terminal ones
+				// that were completed recently (those belong on the active board).
 				const cutoff = new Date(query.createdBefore);
-				filter.$or = [
-					{
-						status: { $in: ["done", "cancelled"] },
-						createdAt: { $lte: cutoff },
-					},
-					{ status: { $nin: ["done", "cancelled"] } },
-				];
-			} else if (query.activeMode && query.createdAfter) {
+				filter.createdAt = { $lte: cutoff };
 				filter.status = { $nin: ["done", "cancelled"] };
+			} else if (query.activeMode && query.createdAfter) {
+				// Active board: ALL tasks created within the last 30 days, any status.
+				// A task marked done/cancelled should stay visible here until it ages out.
 				filter.createdAt = { $gte: new Date(query.createdAfter) };
 			} else {
 				const range: Record<string, Date> = {};

@@ -59,6 +59,8 @@ const TaskSchema = new Schema<ITask>(
 		isArchived: { type: Boolean, default: false },
 		position: { type: Number, default: () => Date.now() },
 		colorTask: { type: String, default: null, maxlength: 7 },
+		ticketNumber: { type: Number, default: null },
+		ticketKey: { type: String, default: null },
 	},
 	{ timestamps: true },
 );
@@ -74,5 +76,6 @@ TaskSchema.index({ project: 1, createdAt: 1 });
 TaskSchema.index({ workspace: 1, createdAt: 1 });
 TaskSchema.index({ parentTask: 1 });
 TaskSchema.index({ title: "text", description: "text" });
+TaskSchema.index({ project: 1, ticketNumber: 1 }, { sparse: true });
 
 export const Task = mongoose.model<ITask>("Task", TaskSchema);

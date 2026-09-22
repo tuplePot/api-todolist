@@ -4,6 +4,7 @@ import type { IProject } from "./types";
 const ProjectSchema = new Schema<IProject>(
 	{
 		name: { type: String, required: true, maxlength: 120 },
+		key: { type: String, required: true, maxlength: 10, uppercase: true },
 		description: { type: String, maxlength: 1000 },
 		color: { type: String },
 		workspace: {

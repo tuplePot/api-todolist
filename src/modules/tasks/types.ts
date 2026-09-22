@@ -43,4 +43,8 @@ export interface ITask {
 	position: number;
 	/** Custom card color in hex format (e.g. "#FF5733"). */
 	colorTask?: string | null;
+	/** Sequential number within the project (e.g. 523). Only set when task has a project. */
+	ticketNumber?: number;
+	/** Pre-computed ticket key, e.g. "JV-523". Only set when task has a project. */
+	ticketKey?: string;
 }

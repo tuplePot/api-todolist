@@ -1,4 +1,5 @@
 import { fail, ok } from "../../libs/response";
+import { deriveProjectKey } from "../../libs/ticket";
 import { WorkspaceService } from "../workspaces/service";
 import {
 	type ProjectCreate,
@@ -41,7 +42,8 @@ export abstract class ProjectService {
 		const role = await WorkspaceService.membershipRole(data.workspace, userId);
 		if (!role) return fail(403, "You do not have access to this workspace");
 
-		const project = await Project.create({ ...data, owner: userId });
+		const key = (data.key ?? deriveProjectKey(data.name)).toUpperCase();
+		const project = await Project.create({ ...data, key, owner: userId });
 		return ok(project, "Project created");
 	}
 
