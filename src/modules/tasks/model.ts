@@ -68,6 +68,12 @@ export const statusBody = t.Object({ status: statusEnum });
 
 export const moveBody = t.Object({ status: statusEnum, position: t.Number() });
 
+// Move a task into another project (or out of any project with `null`). The
+// target may live in a different workspace the caller belongs to.
+export const projectMoveBody = t.Object({
+	project: t.Union([objectId, t.Null()]),
+});
+
 export const checklistAddBody = t.Object({
 	text: t.String({ minLength: 1, maxLength: 500 }),
 });
@@ -119,6 +125,7 @@ export type TaskCreate = typeof taskCreate.static;
 export type TaskUpdate = typeof taskUpdate.static;
 export type StatusBody = typeof statusBody.static;
 export type MoveBody = typeof moveBody.static;
+export type ProjectMoveBody = typeof projectMoveBody.static;
 export type ChecklistAddBody = typeof checklistAddBody.static;
 export type ChecklistUpdateBody = typeof checklistUpdateBody.static;
 export type TaskQuery = typeof taskQuery.static;

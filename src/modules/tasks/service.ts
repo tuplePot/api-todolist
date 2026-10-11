@@ -3,7 +3,12 @@ import { fail, ok } from "../../libs/response";
 import { ActivityService } from "../activity/service";
 import { Project } from "../projects/schema";
 import { WorkspaceService } from "../workspaces/service";
-import { type TaskCreate, type TaskQuery, type TaskUpdate, type TodayQuery } from "./model";
+import {
+	type TaskCreate,
+	type TaskQuery,
+	type TaskUpdate,
+	type TodayQuery,
+} from "./model";
 import { Task } from "./schema";
 import type { TaskStatus } from "./types";
 
@@ -21,6 +26,27 @@ export abstract class TaskService {
 		return { task, role };
 	}
 
+	// Next sequential ticket number within a project.
+	private static async nextTicketNumber(projectId: string) {
+		const last = await Task.findOne({ project: projectId })
+			.sort({ ticketNumber: -1 })
+			.select("ticketNumber")
+			.lean();
+		return (last?.ticketNumber ?? 0) + 1;
+	}
+
+	// Every subtask below `id`, at any depth (archived included, so the whole
+	// family stays consistent when it moves).
+	private static async descendants(id: string) {
+		const found = [];
+		let frontier = [id];
+		while (frontier.length > 0) {
+			const children = await Task.find({ parentTask: { $in: frontier } });
+			found.push(...children);
+			frontier = children.map((c) => c.id as string);
+		}
+		return found;
+	}
 	// ─── Create ────────────────────────────────────────────────────────────────
 
 	static async create(userId: string, data: TaskCreate) {
@@ -46,11 +72,7 @@ export abstract class TaskService {
 				return fail(400, "Project belongs to a different workspace");
 			if (project.isArchived) return fail(400, "Project is archived");
 
-			const last = await Task.findOne({ project: data.project })
-				.sort({ ticketNumber: -1 })
-				.select("ticketNumber")
-				.lean();
-			ticketNumber = (last?.ticketNumber ?? 0) + 1;
+			ticketNumber = await this.nextTicketNumber(data.project);
 			ticketKey = `${project.key}-${ticketNumber}`;
 		}
 
@@ -205,7 +227,15 @@ export abstract class TaskService {
 
 	// ─── Update ────────────────────────────────────────────────────────────────
 
-	static async update(id: string, userId: string, data: TaskUpdate) {
+	static async update(id: string, userId: string, body: TaskUpdate) {
+		// A project change is more than a field write (ticket re-key, subtasks,
+		// possibly a new workspace), so route it through `moveToProject` first.
+		const { project, ...data } = body;
+		if (project !== undefined) {
+			const moved = await this.moveToProject(id, userId, project);
+			if (!("success" in moved)) return moved;
+		}
+
 		const { task, role } = await this.accessible(id, userId);
 		if (!task) return fail(404, "Task not found");
 		if (!role) return fail(403, "You do not have access to this task");
@@ -303,6 +333,108 @@ export abstract class TaskService {
 		return ok(task, "Task moved");
 	}
 
+	// Move a task (and its subtasks) into another project, or out of any project
+	// with `null`. The target may sit in another workspace the caller belongs to;
+	// then workspace-bound links (assignee, parent) that would dangle are cleared.
+	// Tickets are re-keyed for the target project, e.g. JV-12 → API-40.
+	static async moveToProject(
+		id: string,
+		userId: string,
+		projectId: string | null,
+	) {
+		const { task, role } = await this.accessible(id, userId);
+		if (!task) return fail(404, "Task not found");
+		if (!role) return fail(403, "You do not have access to this task");
+
+		const fromProject = task.project?.toString() ?? null;
+		if (fromProject === projectId) return ok(task, "Task already in project");
+
+		const fromWorkspace = task.workspace.toString();
+		let toWorkspace = fromWorkspace;
+		let projectKey: string | null = null;
+
+		if (projectId) {
+			const project = await Project.findById(projectId).lean();
+			if (!project) return fail(404, "Project not found");
+			if (project.isArchived) return fail(400, "Project is archived");
+			toWorkspace = project.workspace.toString();
+			projectKey = project.key;
+			if (toWorkspace !== fromWorkspace) {
+				const targetRole = await WorkspaceService.membershipRole(
+					toWorkspace,
+					userId,
+				);
+				if (!targetRole)
+					return fail(403, "You do not have access to the target workspace");
+			}
+		}
+
+		const crossWorkspace = toWorkspace !== fromWorkspace;
+		const family = [task, ...(await this.descendants(id))];
+
+		// Assignees must be members of the destination workspace.
+		const memberCache = new Map<string, boolean>();
+		const isMember = async (uid: string) => {
+			if (!memberCache.has(uid))
+				memberCache.set(
+					uid,
+					!!(await WorkspaceService.membershipRole(toWorkspace, uid)),
+				);
+			return memberCache.get(uid) as boolean;
+		};
+
+		let nextNumber =
+			projectId !== null ? await this.nextTicketNumber(projectId) : 0;
+		const changes: {
+			id: string;
+			from: string | null;
+			fromKey: string | null;
+			toKey: string | null;
+		}[] = [];
+
+		for (const t of family) {
+			const from = t.project?.toString() ?? null;
+			const fromKey = t.ticketKey ?? null;
+			t.set("project", projectId);
+			if (projectId !== null) {
+				t.ticketNumber = nextNumber;
+				t.ticketKey = `${projectKey}-${nextNumber}`;
+				nextNumber++;
+			} else {
+				t.set("ticketNumber", null);
+				t.set("ticketKey", null);
+			}
+			if (crossWorkspace) {
+				t.set("workspace", toWorkspace);
+				const assignee = t.assignedTo?.toString();
+				if (assignee && !(await isMember(assignee))) t.set("assignedTo", null);
+			}
+			changes.push({
+				id: t.id as string,
+				from,
+				fromKey,
+				toKey: t.ticketKey ?? null,
+			});
+		}
+
+		// The moved root's parent stays behind; a cross-workspace link would dangle.
+		if (crossWorkspace && task.parentTask) task.set("parentTask", null);
+
+		await Promise.all(family.map((t) => t.save()));
+
+		for (const c of changes) {
+			void ActivityService.record(c.id, userId, "project_changed", {
+				from: c.from,
+				to: projectId,
+				fromKey: c.fromKey,
+				toKey: c.toKey,
+				...(crossWorkspace && { fromWorkspace, toWorkspace }),
+			});
+		}
+
+		return ok(task, "Task moved to project");
+	}
+
 	static async findToday(userId: string, query: TodayQuery) {
 		const accessFilter: Record<string, unknown> = {};
 
@@ -372,10 +504,15 @@ export abstract class TaskService {
 				.sort({ position: 1, _id: 1 })
 				.populate(populate)
 				.lean(),
+			// Due today, or overdue but checked off today — otherwise an overdue
+			// task vanishes from the view the moment it's completed.
 			Task.find({
 				...base,
-				dueDate: { $gte: todayStart, $lte: todayEnd },
 				status: "done",
+				$or: [
+					{ dueDate: { $gte: todayStart, $lte: todayEnd } },
+					{ dueDate: { $lt: todayStart }, updatedAt: { $gte: todayStart } },
+				],
 			})
 				.sort({ updatedAt: -1, _id: 1 })
 				.populate(populate)

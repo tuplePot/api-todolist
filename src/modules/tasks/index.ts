@@ -5,6 +5,7 @@ import {
 	checklistAddBody,
 	checklistUpdateBody,
 	moveBody,
+	projectMoveBody,
 	statusBody,
 	taskCreate,
 	taskQuery,
@@ -64,6 +65,13 @@ export const tasksModule = new Elysia({ prefix: "/tasks" }).guard({}, (app) =>
 			({ user, params: { id }, body }) =>
 				TaskService.move(id, user.sub, body.status, body.position),
 			{ params: objectIdParam, body: moveBody },
+		)
+		// ── Project move (re-keys the ticket, may cross workspaces) ────────────
+		.patch(
+			"/:id/project",
+			({ user, params: { id }, body }) =>
+				TaskService.moveToProject(id, user.sub, body.project),
+			{ params: objectIdParam, body: projectMoveBody },
 		)
 		// ── Checklist ──────────────────────────────────────────────────────────
 		.post(

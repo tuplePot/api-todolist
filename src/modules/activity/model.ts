@@ -4,6 +4,7 @@ export type ActivityAction =
 	| "created"
 	| "updated"
 	| "status_changed"
+	| "project_changed"
 	| "assigned"
 	| "unassigned"
 	| "archived"
