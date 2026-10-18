@@ -10,6 +10,10 @@ export const projectCreate = t.Object({
 	key: t.Optional(t.String({ minLength: 1, maxLength: 10 })),
 	description: t.Optional(t.String({ maxLength: 1000 })),
 	color: t.Optional(t.String({ pattern: "^#[0-9a-fA-F]{6}$" })),
+	repoPath: t.Optional(t.Union([t.String({ maxLength: 500 }), t.Null()])),
+	relatedRepoPaths: t.Optional(
+		t.Array(t.String({ minLength: 1, maxLength: 500 }), { maxItems: 5 }),
+	),
 	workspace: objectId,
 });
 
@@ -19,6 +23,10 @@ export const projectUpdate = t.Partial(
 		key: t.String({ minLength: 1, maxLength: 10 }),
 		description: t.String({ maxLength: 1000 }),
 		color: t.Union([t.String({ pattern: "^#[0-9a-fA-F]{6}$" }), t.Null()]),
+		repoPath: t.Union([t.String({ maxLength: 500 }), t.Null()]),
+		relatedRepoPaths: t.Array(t.String({ minLength: 1, maxLength: 500 }), {
+			maxItems: 5,
+		}),
 	}),
 );
 

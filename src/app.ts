@@ -8,9 +8,12 @@ import { docsModule } from "./modules/docs";
 // Register the User schema so `populate('assignedTo'|'createdBy'|'user')` resolves.
 import "./modules/users/model";
 
+import { agentTeamsModule } from "./modules/agent-teams";
+import { agentsModule } from "./modules/agents";
 import { changelogsModule } from "./modules/changelogs";
 import { glossaryModule } from "./modules/glossary";
 import { notesModule } from "./modules/notes";
+import { officeModule } from "./modules/office";
 import { projectsModule } from "./modules/projects";
 import { qaModule } from "./modules/qa";
 import { sharedNotesModule } from "./modules/shared-notes";
@@ -52,7 +55,10 @@ const app = new Elysia()
 				.use(glossaryModule) // /api/glossary
 				.use(qaModule) // /api/qa
 				.use(sharedNotesModule) // /api/shared-notes
-				.use(changelogsModule), // /api/changelogs
+				.use(changelogsModule) // /api/changelogs
+				.use(agentTeamsModule) // /api/agent-teams
+				.use(agentsModule) // /api/agents
+				.use(officeModule), // /api/office (AI office pairing)
 	);
 
 export default app;

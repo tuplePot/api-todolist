@@ -4,6 +4,7 @@ import { objectId, objectIdParam } from "../../libs/schema";
 import {
 	checklistAddBody,
 	checklistUpdateBody,
+	commentBody,
 	moveBody,
 	projectMoveBody,
 	statusBody,
@@ -88,6 +89,13 @@ export const tasksModule = new Elysia({ prefix: "/tasks" }).guard({}, (app) =>
 				params: t.Object({ id: objectId, itemId: objectId }),
 				body: checklistUpdateBody,
 			},
+		)
+		// ── Comments (stored in the activity trail) ────────────────────────────
+		.post(
+			"/:id/comments",
+			({ user, params: { id }, body }) =>
+				TaskService.addComment(id, user.sub, body.text, body.agentId),
+			{ params: objectIdParam, body: commentBody },
 		)
 		// ── Relations & audit ──────────────────────────────────────────────────
 		.get(

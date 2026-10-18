@@ -35,6 +35,8 @@ export interface ITask {
 	project?: Types.ObjectId | null;
 	createdBy: Types.ObjectId;
 	assignedTo?: Types.ObjectId | null;
+	/** AI agent assigned to work this ticket (see the agents module). */
+	assignedAgent?: Types.ObjectId | null;
 	parentTask?: Types.ObjectId | null;
 	checklist: IChecklistItem[];
 	recurrence: IRecurrence;

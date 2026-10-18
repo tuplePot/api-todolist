@@ -33,6 +33,7 @@ export const taskCreate = t.Object({
 	workspace: objectId,
 	project: t.Optional(t.Union([objectId, t.Null()])),
 	assignedTo: t.Optional(t.Union([objectId, t.Null()])),
+	assignedAgent: t.Optional(t.Union([objectId, t.Null()])),
 	parentTask: t.Optional(t.Union([objectId, t.Null()])),
 	checklist: t.Optional(
 		t.Array(
@@ -58,6 +59,7 @@ export const taskUpdate = t.Partial(
 		tags: t.Array(t.String({ maxLength: 50 })),
 		project: t.Union([objectId, t.Null()]),
 		assignedTo: t.Union([objectId, t.Null()]),
+		assignedAgent: t.Union([objectId, t.Null()]),
 		parentTask: t.Union([objectId, t.Null()]),
 		recurrence: recurrenceSchema,
 		colorTask: nullableHexColor,
@@ -72,6 +74,12 @@ export const moveBody = t.Object({ status: statusEnum, position: t.Number() });
 // target may live in a different workspace the caller belongs to.
 export const projectMoveBody = t.Object({
 	project: t.Union([objectId, t.Null()]),
+});
+
+// A comment on a ticket, optionally written on behalf of an AI agent.
+export const commentBody = t.Object({
+	text: t.String({ minLength: 1, maxLength: 10000 }),
+	agentId: t.Optional(objectId),
 });
 
 export const checklistAddBody = t.Object({
@@ -92,6 +100,9 @@ export const taskQuery = t.Object({
 	issueType: t.Optional(issueTypeEnum),
 	tag: t.Optional(t.String()),
 	assignedTo: t.Optional(objectId),
+	assignedAgent: t.Optional(objectId),
+	/** `true` → only tickets that have an AI agent assigned. */
+	hasAgent: t.Optional(t.BooleanString()),
 	dueBefore: t.Optional(t.String({ format: "date-time" })),
 	dueAfter: t.Optional(t.String({ format: "date-time" })),
 	createdAfter: t.Optional(t.String({ format: "date-time" })),
@@ -127,6 +138,7 @@ export type StatusBody = typeof statusBody.static;
 export type MoveBody = typeof moveBody.static;
 export type ProjectMoveBody = typeof projectMoveBody.static;
 export type ChecklistAddBody = typeof checklistAddBody.static;
+export type CommentBody = typeof commentBody.static;
 export type ChecklistUpdateBody = typeof checklistUpdateBody.static;
 export type TaskQuery = typeof taskQuery.static;
 export type TodayQuery = typeof todayQuery.static;

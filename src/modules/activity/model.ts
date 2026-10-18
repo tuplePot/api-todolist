@@ -7,6 +7,8 @@ export type ActivityAction =
 	| "project_changed"
 	| "assigned"
 	| "unassigned"
+	| "agent_assigned"
+	| "agent_unassigned"
 	| "archived"
 	| "checklist_added"
 	| "checklist_updated"

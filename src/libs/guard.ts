@@ -1,6 +1,7 @@
 import { jwt as jwtPlugin } from "@elysiajs/jwt";
 import { Elysia, status } from "elysia";
 import { Types } from "mongoose";
+import { OFFICE_TOKEN_PREFIX, OfficeService } from "../modules/office/service";
 
 // Reusable JWT auth guard. Assumes Vault Josh's auth service issues an HS256
 // token whose payload carries `sub` (userId), `email`, and `role`. Attach with
@@ -14,7 +15,7 @@ export const guard = new Elysia({ name: "guard" })
 			exp: "7d",
 		}),
 	)
-	.resolve({ as: "scoped" }, async ({ jwt, headers }) => {
+	.resolve({ as: "scoped" }, async ({ jwt, headers, request, query }) => {
 		// 1) API-key bypass: a valid `x-api-key` grants access without a login token
 		// (used by trusted service-to-service callers like Vault Josh). The key acts
 		// AS a real user, since every downstream query keys off `user.sub` as a Mongo
@@ -49,7 +50,30 @@ export const guard = new Elysia({ name: "guard" })
 				data: null,
 			});
 
-		const payload = await jwt.verify(auth.slice(7));
+		// 2a) Office token (`kai_…`, from pairing the AI office): acts as the user
+		// who allowed it, but only for the few routes the office needs, in one
+		// workspace. Checked here so no route can forget it.
+		const bearer = auth.slice(7);
+		if (bearer.startsWith(OFFICE_TOKEN_PREFIX)) {
+			const office = await OfficeService.authenticate(bearer);
+			if (!office)
+				return status(401, {
+					success: false,
+					message: "This office connection was removed. Connect it again.",
+					data: null,
+				});
+			const scope = await OfficeService.scopeError(
+				office,
+				request.method,
+				new URL(request.url).pathname,
+				query as Record<string, string | undefined>,
+			);
+			if (scope)
+				return status(403, { success: false, message: scope, data: null });
+			return { user: office };
+		}
+
+		const payload = await jwt.verify(bearer);
 		if (!payload)
 			return status(401, {
 				success: false,

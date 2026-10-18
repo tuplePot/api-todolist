@@ -67,6 +67,46 @@ const groups: { title: string; desc: string; eps: Ep[] }[] = [
 			{ m: "GET", p: "/api/tasks/:id/activity", d: "Task activity log" },
 		],
 	},
+	{
+		title: "Agent Teams",
+		desc: "Teams/divisions for AI agents. Read: any member. Write: owner/admin.",
+		eps: [
+			{
+				m: "GET",
+				p: "/api/agent-teams?workspace=",
+				d: "List teams in a workspace",
+			},
+			{ m: "POST", p: "/api/agent-teams", d: "Create a team" },
+			{ m: "GET", p: "/api/agent-teams/:id", d: "Get a team" },
+			{ m: "PATCH", p: "/api/agent-teams/:id", d: "Update a team" },
+			{ m: "DELETE", p: "/api/agent-teams/:id", d: "Archive a team" },
+		],
+	},
+	{
+		title: "Agents",
+		desc: "AI agents (virtual office employees). Read: any member. Write: owner/admin.",
+		eps: [
+			{
+				m: "GET",
+				p: "/api/agents?workspace=",
+				d: "List agents (filters: team, projectAccess, search, includeArchived)",
+			},
+			{
+				m: "GET",
+				p: "/api/agents/export?workspace=",
+				d: "Active agents in the AI office config.json employees[] shape",
+			},
+			{ m: "POST", p: "/api/agents", d: "Create an agent (slug is permanent)" },
+			{ m: "GET", p: "/api/agents/:id", d: "Get an agent" },
+			{ m: "PATCH", p: "/api/agents/:id", d: "Update an agent" },
+			{
+				m: "PATCH",
+				p: "/api/agents/:id/restore",
+				d: "Restore an archived agent",
+			},
+			{ m: "DELETE", p: "/api/agents/:id", d: "Archive an agent" },
+		],
+	},
 ];
 
 const cls = (m: string) => `m-${m.toLowerCase()}`;

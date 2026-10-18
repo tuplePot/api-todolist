@@ -7,6 +7,8 @@ const ProjectSchema = new Schema<IProject>(
 		key: { type: String, required: true, maxlength: 10, uppercase: true },
 		description: { type: String, maxlength: 1000 },
 		color: { type: String },
+		repoPath: { type: String, maxlength: 500, default: null },
+		relatedRepoPaths: { type: [String], default: [] },
 		workspace: {
 			type: Schema.Types.ObjectId,
 			ref: "Workspace",

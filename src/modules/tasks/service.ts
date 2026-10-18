@@ -1,6 +1,7 @@
 import { fail, ok } from "../../libs/response";
 // import { Project } from '../projects/model'
 import { ActivityService } from "../activity/service";
+import { AgentService } from "../agents/service";
 import { Project } from "../projects/schema";
 import { WorkspaceService } from "../workspaces/service";
 import {
@@ -13,6 +14,9 @@ import { Task } from "./schema";
 import type { TaskStatus } from "./types";
 
 const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// Fields shown for an assigned AI agent on task payloads.
+const AGENT_FIELDS = "slug name role color isArchived";
 
 export abstract class TaskService {
 	// Fetch a task together with the caller's role in its workspace.
@@ -62,6 +66,14 @@ export abstract class TaskService {
 				return fail(400, "Assignee is not a member of this workspace");
 		}
 
+		if (data.assignedAgent) {
+			const agentError = await AgentService.assignableError(
+				data.assignedAgent,
+				data.workspace,
+			);
+			if (agentError) return fail(400, agentError);
+		}
+
 		let ticketNumber: number | undefined;
 		let ticketKey: string | undefined;
 
@@ -93,6 +105,12 @@ export abstract class TaskService {
 		void ActivityService.record(task.id, userId, "created", {
 			title: task.title,
 		});
+		if (task.assignedAgent) {
+			void ActivityService.record(task.id, userId, "agent_assigned", {
+				from: null,
+				to: task.assignedAgent.toString(),
+			});
+		}
 		return ok(task, "Task created");
 	}
 
@@ -133,6 +151,8 @@ export abstract class TaskService {
 		if (query.issueType) filter.issueType = query.issueType;
 		if (query.tag) filter.tags = query.tag;
 		if (query.assignedTo) filter.assignedTo = query.assignedTo;
+		if (query.assignedAgent) filter.assignedAgent = query.assignedAgent;
+		else if (query.hasAgent) filter.assignedAgent = { $ne: null };
 		if (query.parentTask) filter.parentTask = query.parentTask;
 		if (!query.includeArchived) filter.isArchived = false;
 
@@ -178,6 +198,7 @@ export abstract class TaskService {
 				.skip((page - 1) * limit)
 				.limit(limit)
 				.populate("assignedTo", "name email")
+				.populate("assignedAgent", AGENT_FIELDS)
 				.lean(),
 			Task.countDocuments(filter),
 		]);
@@ -193,6 +214,7 @@ export abstract class TaskService {
 		const [populated, subtasks, activity] = await Promise.all([
 			task.populate([
 				{ path: "assignedTo", select: "name email" },
+				{ path: "assignedAgent", select: AGENT_FIELDS },
 				{ path: "createdBy", select: "name email" },
 			]),
 			Task.find({ parentTask: id, isArchived: false })
@@ -212,6 +234,7 @@ export abstract class TaskService {
 		const subtasks = await Task.find({ parentTask: id, isArchived: false })
 			.sort({ createdAt: 1 })
 			.populate("assignedTo", "name email")
+			.populate("assignedAgent", AGENT_FIELDS)
 			.lean();
 		return ok(subtasks, "Subtasks fetched");
 	}
@@ -250,7 +273,17 @@ export abstract class TaskService {
 				return fail(400, "Assignee is not a member of this workspace");
 		}
 
+		// Validate a new AI agent belongs to the same workspace and is active.
+		if (data.assignedAgent) {
+			const agentError = await AgentService.assignableError(
+				data.assignedAgent,
+				task.workspace.toString(),
+			);
+			if (agentError) return fail(400, agentError);
+		}
+
 		const prevAssignee = task.assignedTo?.toString() ?? null;
+		const prevAgent = task.assignedAgent?.toString() ?? null;
 		const changed: string[] = [];
 
 		for (const [key, value] of Object.entries(data) as [
@@ -280,13 +313,26 @@ export abstract class TaskService {
 				{ from: prevAssignee, to: nextAssignee },
 			);
 		}
-		const otherChanges = changed.filter((c) => c !== "assignedTo");
+		if (changed.includes("assignedAgent")) {
+			const nextAgent = task.assignedAgent?.toString() ?? null;
+			await ActivityService.record(
+				id,
+				userId,
+				nextAgent ? "agent_assigned" : "agent_unassigned",
+				{ from: prevAgent, to: nextAgent },
+			);
+		}
+		const otherChanges = changed.filter(
+			(c) => c !== "assignedTo" && c !== "assignedAgent",
+		);
 		if (otherChanges.length > 0) {
 			await ActivityService.record(id, userId, "updated", {
 				fields: otherChanges,
 			});
 		}
 
+		// Return the slim agent so a board card can render it without a refetch.
+		await task.populate({ path: "assignedAgent", select: AGENT_FIELDS });
 		return ok(task, "Task updated");
 	}
 
@@ -408,6 +454,8 @@ export abstract class TaskService {
 				t.set("workspace", toWorkspace);
 				const assignee = t.assignedTo?.toString();
 				if (assignee && !(await isMember(assignee))) t.set("assignedTo", null);
+				// Agents are workspace-scoped, so they never follow a task across.
+				t.set("assignedAgent", null);
 			}
 			changes.push({
 				id: t.id as string,
@@ -484,6 +532,7 @@ export abstract class TaskService {
 		const base = { ...accessFilter, isArchived: false };
 		const populate = [
 			{ path: "assignedTo", select: "name email" },
+			{ path: "assignedAgent", select: AGENT_FIELDS },
 			{ path: "project", select: "name color" },
 		];
 
@@ -542,6 +591,31 @@ export abstract class TaskService {
 	}
 
 	// ─── Checklist ─────────────────────────────────────────────────────────────
+
+	static async addComment(
+		id: string,
+		userId: string,
+		text: string,
+		agentId?: string,
+	) {
+		const { task, role } = await this.accessible(id, userId);
+		if (!task) return fail(404, "Task not found");
+		if (!role) return fail(403, "You do not have access to this task");
+
+		if (agentId) {
+			const agentError = await AgentService.assignableError(
+				agentId,
+				task.workspace.toString(),
+			);
+			if (agentError) return fail(400, agentError);
+		}
+
+		await ActivityService.record(id, userId, "commented", {
+			text,
+			...(agentId && { agentId }),
+		});
+		return ok({ text, agentId: agentId ?? null }, "Comment added");
+	}
 
 	static async addChecklistItem(id: string, userId: string, text: string) {
 		const { task, role } = await this.accessible(id, userId);

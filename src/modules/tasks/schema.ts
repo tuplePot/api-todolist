@@ -46,6 +46,13 @@ const TaskSchema = new Schema<ITask>(
 		project: { type: Schema.Types.ObjectId, ref: "Project", default: null },
 		createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
 		assignedTo: { type: Schema.Types.ObjectId, ref: "User", default: null },
+		// AI agent (from the agents module) responsible for working this ticket.
+		// Separate from `assignedTo` (a human workspace member) on purpose.
+		assignedAgent: {
+			type: Schema.Types.ObjectId,
+			ref: "Agent",
+			default: null,
+		},
 		parentTask: { type: Schema.Types.ObjectId, ref: "Task", default: null },
 		checklist: { type: [ChecklistItemSchema], default: [] },
 		recurrence: {
@@ -71,6 +78,7 @@ TaskSchema.index({ workspace: 1, isArchived: 1 });
 TaskSchema.index({ project: 1, status: 1 });
 TaskSchema.index({ project: 1, isArchived: 1 });
 TaskSchema.index({ assignedTo: 1 });
+TaskSchema.index({ assignedAgent: 1, status: 1 });
 TaskSchema.index({ dueDate: 1 });
 TaskSchema.index({ project: 1, createdAt: 1 });
 TaskSchema.index({ workspace: 1, createdAt: 1 });
