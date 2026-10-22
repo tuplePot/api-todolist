@@ -7,6 +7,64 @@ import {
 	type ProjectUpdate,
 } from "./model";
 import { Project } from "./schema";
+import type { IRepoPath } from "./types";
+
+type RepoFields = {
+	repoPath?: string | null;
+	relatedRepoPaths?: string[];
+	repoPaths?: IRepoPath[];
+};
+
+/** Trims entries and drops empty or repeated paths (case-insensitive, like Windows). */
+function cleanRepoPaths(list: IRepoPath[]): IRepoPath[] {
+	const seen = new Set<string>();
+	const out: IRepoPath[] = [];
+	for (const e of list) {
+		const path = e.path.trim();
+		const key = path.toLowerCase();
+		if (!path || seen.has(key)) continue;
+		seen.add(key);
+		out.push({ label: e.label.trim() || `Folder ${out.length + 1}`, path });
+	}
+	return out;
+}
+
+/**
+ * Keeps `repoPaths` (new, labelled) and `repoPath` + `relatedRepoPaths` (old)
+ * in sync, whichever of them the client sent. Returns only the fields to set.
+ */
+function syncRepoFields(data: RepoFields, current?: RepoFields): RepoFields {
+	if (data.repoPaths !== undefined) {
+		const list = cleanRepoPaths(data.repoPaths);
+		return {
+			repoPaths: list,
+			repoPath: list[0]?.path ?? null,
+			relatedRepoPaths: list.slice(1).map((e) => e.path),
+		};
+	}
+	if (data.repoPath === undefined && data.relatedRepoPaths === undefined)
+		return {};
+	const main =
+		data.repoPath !== undefined ? data.repoPath : (current?.repoPath ?? null);
+	const related = data.relatedRepoPaths ?? current?.relatedRepoPaths ?? [];
+	const oldLabel = new Map(
+		(current?.repoPaths ?? []).map((e) => [e.path.toLowerCase(), e.label]),
+	);
+	const paths = [main, ...related].filter((p): p is string => !!p?.trim());
+	const list = cleanRepoPaths(
+		paths.map((p, i) => ({
+			path: p,
+			label:
+				oldLabel.get(p.trim().toLowerCase()) ??
+				(i === 0 ? "Main" : `Related ${i}`),
+		})),
+	);
+	return {
+		repoPaths: list,
+		repoPath: main?.trim() || null,
+		relatedRepoPaths: related,
+	};
+}
 
 export abstract class ProjectService {
 	/** Fetch a project and verify the caller has access to its workspace. */
@@ -43,7 +101,12 @@ export abstract class ProjectService {
 		if (!role) return fail(403, "You do not have access to this workspace");
 
 		const key = (data.key ?? deriveProjectKey(data.name)).toUpperCase();
-		const project = await Project.create({ ...data, key, owner: userId });
+		const project = await Project.create({
+			...data,
+			...syncRepoFields(data),
+			key,
+			owner: userId,
+		});
 		return ok(project, "Project created");
 	}
 
@@ -52,7 +115,7 @@ export abstract class ProjectService {
 		if (!project) return fail(404, "Project not found");
 		if (!role) return fail(403, "You do not have access to this project");
 
-		Object.assign(project, data);
+		Object.assign(project, data, syncRepoFields(data, project.toObject()));
 		await project.save();
 		return ok(project, "Project updated");
 	}

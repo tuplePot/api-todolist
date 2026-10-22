@@ -51,8 +51,8 @@ export const guard = new Elysia({ name: "guard" })
 			});
 
 		// 2a) Office token (`kai_…`, from pairing the AI office): acts as the user
-		// who allowed it, but only for the few routes the office needs, in one
-		// workspace. Checked here so no route can forget it.
+		// who allowed it, but only for the few routes the office needs, in their
+		// team workspaces. Checked here so no route can forget it.
 		const bearer = auth.slice(7);
 		if (bearer.startsWith(OFFICE_TOKEN_PREFIX)) {
 			const office = await OfficeService.authenticate(bearer);

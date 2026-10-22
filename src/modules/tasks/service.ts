@@ -70,6 +70,7 @@ export abstract class TaskService {
 			const agentError = await AgentService.assignableError(
 				data.assignedAgent,
 				data.workspace,
+				data.project ?? null,
 			);
 			if (agentError) return fail(400, agentError);
 		}
@@ -273,11 +274,13 @@ export abstract class TaskService {
 				return fail(400, "Assignee is not a member of this workspace");
 		}
 
-		// Validate a new AI agent belongs to the same workspace and is active.
+		// Validate a new AI agent belongs to the same workspace, is active and
+		// (when its room is bound to a project) works on this task's project.
 		if (data.assignedAgent) {
 			const agentError = await AgentService.assignableError(
 				data.assignedAgent,
 				task.workspace.toString(),
+				task.project?.toString() ?? null,
 			);
 			if (agentError) return fail(400, agentError);
 		}
@@ -456,6 +459,11 @@ export abstract class TaskService {
 				if (assignee && !(await isMember(assignee))) t.set("assignedTo", null);
 				// Agents are workspace-scoped, so they never follow a task across.
 				t.set("assignedAgent", null);
+			} else {
+				// An agent in another project's room cannot follow it either.
+				const agent = t.assignedAgent?.toString();
+				const room = agent ? await AgentService.roomProjectId(agent) : null;
+				if (room && room !== projectId) t.set("assignedAgent", null);
 			}
 			changes.push({
 				id: t.id as string,
@@ -606,6 +614,7 @@ export abstract class TaskService {
 			const agentError = await AgentService.assignableError(
 				agentId,
 				task.workspace.toString(),
+				task.project?.toString() ?? null,
 			);
 			if (agentError) return fail(400, agentError);
 		}

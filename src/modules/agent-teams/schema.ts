@@ -6,6 +6,7 @@ const AgentTeamSchema = new Schema<IAgentTeam>(
 		name: { type: String, required: true, trim: true, maxlength: 80 },
 		description: { type: String, maxlength: 500 },
 		color: { type: String },
+		project: { type: Schema.Types.ObjectId, ref: "Project", default: null },
 		workspace: {
 			type: Schema.Types.ObjectId,
 			ref: "Workspace",
@@ -20,6 +21,7 @@ const AgentTeamSchema = new Schema<IAgentTeam>(
 
 AgentTeamSchema.index({ workspace: 1, isArchived: 1, position: 1 });
 AgentTeamSchema.index({ workspace: 1, name: 1 });
+AgentTeamSchema.index({ project: 1 });
 
 export const AgentTeam = mongoose.model<IAgentTeam>(
 	"AgentTeam",

@@ -1,12 +1,10 @@
 import crypto from "node:crypto";
 import { fail, ok } from "../../libs/response";
-import { canManage } from "../../libs/workspaceRole";
 import { Agent } from "../agents/schema";
 import { Project } from "../projects/schema";
 import { Task } from "../tasks/schema";
 import { User } from "../users/model";
 import { Workspace } from "../workspaces/model";
-import { WorkspaceService } from "../workspaces/service";
 import { OfficeConnection } from "./schema";
 import type { OfficeUser } from "./types";
 
@@ -32,25 +30,37 @@ const isLive = (expiresAt?: Date | null) =>
 	!!expiresAt && expiresAt.getTime() > Date.now();
 
 // ─── Office-token scope ──────────────────────────────────────────────────────
-// An office token may only do what the AI office needs, inside ONE workspace:
-// read agents/projects/tickets, move a ticket's status, and comment on it.
+// An office token may only do what the AI office needs: read agents/projects/
+// tickets, move a ticket's status, and comment on it. It works in every TEAM
+// workspace of the user who allowed it (where agents get tickets assigned);
+// the personal workspace is never part of it. Which project an agent works on
+// is decided by its room (agent team), not by the connection.
 
 const TASK_ID = /^\/api\/tasks\/([0-9a-f]{24})$/i;
 const TASK_STATUS = /^\/api\/tasks\/([0-9a-f]{24})\/status$/i;
 const TASK_COMMENT = /^\/api\/tasks\/([0-9a-f]{24})\/comments$/i;
 const PROJECT_ID = /^\/api\/projects\/([0-9a-f]{24})$/i;
 
-async function inWorkspace(
-	model: "task" | "project" | "agent",
-	id: string,
-	workspace: string,
-) {
+/** Team workspaces the user belongs to: the office's whole reach. */
+async function officeWorkspaces(userId: string) {
+	return Workspace.find(
+		{ "members.user": userId, type: "team" },
+		{ name: 1, type: 1 },
+	)
+		.sort({ createdAt: 1 })
+		.lean();
+}
+
+async function workspaceOf(model: "task" | "project" | "agent", id: string) {
 	const M = model === "task" ? Task : model === "project" ? Project : Agent;
 	const doc = await (M as typeof Task)
 		.findById(id, { workspace: 1 })
 		.lean<{ workspace?: { toString(): string } }>();
-	return doc?.workspace?.toString() === workspace;
+	return doc?.workspace?.toString() ?? null;
 }
+
+const workspaceList = (list: { _id: unknown; name: string; type: string }[]) =>
+	list.map((w) => ({ _id: w._id, name: w.name, type: w.type }));
 
 export abstract class OfficeService {
 	/** Office token → acting user, or null when unknown/revoked. */
@@ -60,7 +70,7 @@ export abstract class OfficeService {
 			tokenHash: sha256(token),
 			status: "active",
 		}).lean();
-		if (!conn?.user || !conn.workspace) return null;
+		if (!conn?.user) return null;
 		const last = conn.lastUsedAt?.getTime() ?? 0;
 		if (Date.now() - last > TOUCH_EVERY_MS) {
 			void OfficeConnection.updateOne(
@@ -73,7 +83,6 @@ export abstract class OfficeService {
 			email: "office@kantor-ai",
 			role: "office",
 			officeId: conn._id.toString(),
-			officeWorkspace: conn.workspace.toString(),
 		};
 	}
 
@@ -84,39 +93,40 @@ export abstract class OfficeService {
 		pathname: string,
 		query: Record<string, string | undefined>,
 	): Promise<string | null> {
-		const ws = office.officeWorkspace;
 		const path = pathname.replace(/\/+$/, "") || "/";
 		const denied = "This office connection is not allowed to do that";
-		const otherWs = "This office connection is limited to another workspace";
+		const outside = "This office connection only works in your team workspaces";
 
 		if (path === "/api/office/me" && (method === "GET" || method === "DELETE"))
 			return null;
 
+		const allowed = new Set(
+			(await officeWorkspaces(office.sub)).map((w) => String(w._id)),
+		);
+		const inScope = (ws: string | null | undefined) =>
+			ws && allowed.has(ws) ? null : outside;
+
 		if (method === "GET") {
 			if (path === "/api/agents/export" || path === "/api/projects")
-				return query.workspace === ws ? null : otherWs;
+				return inScope(query.workspace);
 			if (path === "/api/tasks") {
-				if (query.workspace) return query.workspace === ws ? null : otherWs;
+				if (query.workspace) return inScope(query.workspace);
 				if (query.assignedAgent)
-					return (await inWorkspace("agent", query.assignedAgent, ws))
-						? null
-						: otherWs;
+					return inScope(await workspaceOf("agent", query.assignedAgent));
 				if (query.project)
-					return (await inWorkspace("project", query.project, ws))
-						? null
-						: otherWs;
-				return otherWs;
+					return inScope(await workspaceOf("project", query.project));
+				return outside;
 			}
 			const p = path.match(PROJECT_ID);
-			if (p) return (await inWorkspace("project", p[1], ws)) ? null : otherWs;
+			if (p) return inScope(await workspaceOf("project", p[1]));
 			const tk = path.match(TASK_ID);
-			if (tk) return (await inWorkspace("task", tk[1], ws)) ? null : otherWs;
+			if (tk) return inScope(await workspaceOf("task", tk[1]));
 			return denied;
 		}
 		const st = method === "PATCH" && path.match(TASK_STATUS);
 		const cm = method === "POST" && path.match(TASK_COMMENT);
 		const id = (st || cm || [])[1];
-		if (id) return (await inWorkspace("task", id, ws)) ? null : otherWs;
+		if (id) return inScope(await workspaceOf("task", id));
 		return denied;
 	}
 
@@ -174,8 +184,8 @@ export abstract class OfficeService {
 		conn.expiresAt = null;
 		conn.lastUsedAt = new Date();
 		await conn.save();
-		const [ws, user] = await Promise.all([
-			Workspace.findById(conn.workspace, { name: 1, type: 1 }).lean(),
+		const [workspaces, user] = await Promise.all([
+			officeWorkspaces(String(conn.user)),
 			User.findById(conn.user, { name: 1, email: 1 }).lean(),
 		]);
 		return ok(
@@ -183,7 +193,7 @@ export abstract class OfficeService {
 				status: "active" as const,
 				token,
 				connectionId: conn.id as string,
-				workspace: ws ? { _id: ws._id, name: ws.name, type: ws.type } : null,
+				workspaces: workspaceList(workspaces),
 				user: user ? { name: user.name, email: user.email } : null,
 			},
 			"Office connected",
@@ -218,11 +228,7 @@ export abstract class OfficeService {
 		);
 	}
 
-	static async approve(
-		code: string,
-		user: { sub: string; role?: string },
-		workspace: string,
-	) {
+	static async approve(code: string, user: { sub: string; role?: string }) {
 		if (user.role === "office" || user.role === "service")
 			return fail(403, "Only a signed-in person can connect an office");
 		const conn = await this.pendingByCode(code);
@@ -231,14 +237,16 @@ export abstract class OfficeService {
 				404,
 				"This code is unknown or expired. Start again in the office.",
 			);
-		const role = await WorkspaceService.membershipRole(workspace, user.sub);
-		if (!canManage(role))
-			return fail(403, "Only a workspace owner or admin can connect an office");
+		if ((await officeWorkspaces(user.sub)).length === 0)
+			return fail(
+				400,
+				"You have no team workspace yet: the office works on team projects only",
+			);
 
 		conn.set({
 			status: "approved",
 			user: user.sub,
-			workspace,
+			workspace: null,
 			approvedAt: new Date(),
 			expiresAt: new Date(Date.now() + PAIR_TTL_MS),
 		});
@@ -258,18 +266,12 @@ export abstract class OfficeService {
 
 	// ─── Connected offices (josh-vault) ─────────────────────────────────────────
 
-	static async list(userId: string, workspace?: string) {
-		const filter: Record<string, unknown> = { user: userId, status: "active" };
-		if (workspace) filter.workspace = workspace;
-		const list = await OfficeConnection.find(filter, {
-			deviceName: 1,
-			workspace: 1,
-			approvedAt: 1,
-			lastUsedAt: 1,
-			createdAt: 1,
-		})
+	static async list(userId: string) {
+		const list = await OfficeConnection.find(
+			{ user: userId, status: "active" },
+			{ deviceName: 1, approvedAt: 1, lastUsedAt: 1, createdAt: 1 },
+		)
 			.sort({ approvedAt: -1 })
-			.populate("workspace", "name type")
 			.lean();
 		return ok(list, "Connected offices");
 	}
@@ -291,12 +293,12 @@ export abstract class OfficeService {
 	// ─── The office itself ──────────────────────────────────────────────────────
 
 	static async me(office: OfficeUser) {
-		const [conn, ws, user] = await Promise.all([
+		const [conn, workspaces, user] = await Promise.all([
 			OfficeConnection.findById(office.officeId, {
 				deviceName: 1,
 				approvedAt: 1,
 			}).lean(),
-			Workspace.findById(office.officeWorkspace, { name: 1, type: 1 }).lean(),
+			officeWorkspaces(office.sub),
 			User.findById(office.sub, { name: 1, email: 1 }).lean(),
 		]);
 		return ok(
@@ -304,7 +306,7 @@ export abstract class OfficeService {
 				connectionId: office.officeId,
 				deviceName: conn?.deviceName ?? null,
 				approvedAt: conn?.approvedAt ?? null,
-				workspace: ws ? { _id: ws._id, name: ws.name, type: ws.type } : null,
+				workspaces: workspaceList(workspaces),
 				user: user ? { name: user.name, email: user.email } : null,
 			},
 			"Office connection",

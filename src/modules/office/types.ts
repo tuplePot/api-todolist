@@ -17,6 +17,10 @@ export interface IOfficeConnection {
 	/** SHA-256 of the office token (`kai_…`), set on approval. */
 	tokenHash?: string | null;
 	user?: Types.ObjectId | null;
+	/**
+	 * Legacy: connections used to be limited to one workspace. Ignored now; an
+	 * office works in all of the user's team workspaces.
+	 */
 	workspace?: Types.ObjectId | null;
 	/** Pending/approved pairings expire; cleared once the office holds its token. */
 	expiresAt?: Date | null;
@@ -31,5 +35,4 @@ export interface OfficeUser {
 	email: string;
 	role: "office";
 	officeId: string;
-	officeWorkspace: string;
 }

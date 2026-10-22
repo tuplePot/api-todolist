@@ -1,6 +1,7 @@
 import { fail, ok } from "../../libs/response";
 import { canManage } from "../../libs/workspaceRole";
 import { AgentTeam } from "../agent-teams/schema";
+import { TEAM_PROJECT_POPULATE } from "../agent-teams/service";
 import { WorkspaceService } from "../workspaces/service";
 import type {
 	AgentCreate,
@@ -10,7 +11,18 @@ import type {
 } from "./model";
 import { Agent } from "./schema";
 
-const TEAM_POPULATE = { path: "team", select: "name color" };
+const TEAM_POPULATE = {
+	path: "team",
+	select: "name color project",
+	populate: TEAM_PROJECT_POPULATE,
+};
+
+type PopulatedRoom = {
+	_id: unknown;
+	name: string;
+	color?: string;
+	project?: { _id: unknown; name: string; key: string } | null;
+} | null;
 
 const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -41,12 +53,14 @@ export abstract class AgentService {
 	}
 
 	/**
-	 * Used by tasks: returns an error message when the agent cannot be assigned
-	 * to a task in `workspaceId`, or null when it can.
+	 * Used by tasks: returns an error message when the agent cannot work on a
+	 * task in `workspaceId` / `projectId`, or null when it can. An agent whose
+	 * team (room) is bound to a project only works on that project's tickets.
 	 */
 	static async assignableError(
 		agentId: string,
 		workspaceId: string,
+		projectId: string | null,
 	): Promise<string | null> {
 		const agent = await Agent.findById(agentId, {
 			workspace: 1,
@@ -56,7 +70,30 @@ export abstract class AgentService {
 		if (agent.workspace.toString() !== workspaceId)
 			return "Agent belongs to a different workspace";
 		if (agent.isArchived) return "Agent is archived";
+		const room = await this.roomProjectId(agentId);
+		if (room && room !== projectId)
+			return "This agent works in the room of another project";
 		return null;
+	}
+
+	/** Project the agent's team (room) is bound to, or null for a general room. */
+	static async roomProjectId(agentId: string): Promise<string | null> {
+		const agent = await Agent.findById(agentId, { team: 1 }).lean();
+		if (!agent?.team) return null;
+		const team = await AgentTeam.findById(agent.team, { project: 1 }).lean();
+		return team?.project?.toString() ?? null;
+	}
+
+	/** Teams of the workspace bound to a project other than `projectId`. */
+	private static async otherProjectTeamIds(
+		workspaceId: string,
+		projectId: string,
+	) {
+		const teams = await AgentTeam.find(
+			{ workspace: workspaceId, project: { $nin: [null, projectId] } },
+			{ _id: 1 },
+		).lean();
+		return teams.map((t) => t._id);
 	}
 
 	static async findAll(userId: string, query: AgentQuery) {
@@ -67,6 +104,13 @@ export abstract class AgentService {
 		if (!query.includeArchived) filter.isArchived = false;
 		if (query.team) filter.team = query.team;
 		if (query.projectAccess) filter.projectAccess = query.projectAccess;
+		if (query.project) {
+			const excluded = await this.otherProjectTeamIds(
+				query.workspace,
+				query.project,
+			);
+			filter.$and = [{ team: { $nin: excluded } }];
+		}
 		if (query.search) {
 			const re = new RegExp(escapeRegex(query.search), "i");
 			filter.$or = [{ name: re }, { role: re }, { slug: re }];
@@ -169,13 +213,29 @@ export abstract class AgentService {
 		const role = await WorkspaceService.membershipRole(query.workspace, userId);
 		if (!role) return fail(403, "You do not have access to this workspace");
 
-		const agents = await Agent.find({
-			workspace: query.workspace,
-			isArchived: false,
-		})
-			.sort({ position: 1, createdAt: 1 })
-			.populate<{ team: { _id: unknown; name: string } | null }>(TEAM_POPULATE)
-			.lean();
+		const [agents, teams] = await Promise.all([
+			Agent.find({ workspace: query.workspace, isArchived: false })
+				.sort({ position: 1, createdAt: 1 })
+				.populate<{ team: PopulatedRoom }>(TEAM_POPULATE)
+				.lean(),
+			AgentTeam.find({ workspace: query.workspace, isArchived: false })
+				.sort({ position: 1, createdAt: 1 })
+				.populate<{ project: NonNullable<PopulatedRoom>["project"] }>(
+					TEAM_PROJECT_POPULATE,
+				)
+				.lean(),
+		]);
+
+		// Rooms of the office: one per team; a team bound to a project is that
+		// project's room, so the office can lay out e.g. "Floor 1: DolphinPOS".
+		const project = (p: NonNullable<PopulatedRoom>["project"]) =>
+			p ? { _id: p._id, key: p.key, name: p.name } : null;
+		const rooms = teams.map((t) => ({
+			id: t._id,
+			name: t.name,
+			color: t.color ?? null,
+			project: project(t.project),
+		}));
 
 		const employees = agents.map((a) => ({
 			id: a.slug,
@@ -183,6 +243,8 @@ export abstract class AgentService {
 			name: a.name,
 			role: a.role,
 			division: a.team?.name?.toLowerCase() ?? null,
+			roomId: a.team?._id ?? null,
+			project: project(a.team?.project),
 			mission: a.mission ?? "",
 			color: a.color ?? null,
 			vrm: a.vrm ?? null,
@@ -195,6 +257,6 @@ export abstract class AgentService {
 			updatedAt: (a as { updatedAt?: Date }).updatedAt ?? null,
 		}));
 
-		return ok({ employees }, "Agents exported for the AI office");
+		return ok({ rooms, employees }, "Agents exported for the AI office");
 	}
 }

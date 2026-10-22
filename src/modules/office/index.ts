@@ -2,13 +2,7 @@ import { Elysia } from "elysia";
 import { guard } from "../../libs/guard";
 import { fail } from "../../libs/response";
 import { objectIdParam } from "../../libs/schema";
-import {
-	connectionQuery,
-	pairApproveBody,
-	pairCodeParam,
-	pairStartBody,
-	pairTokenBody,
-} from "./model";
+import { pairCodeParam, pairStartBody, pairTokenBody } from "./model";
 import { OfficeService } from "./service";
 import type { OfficeUser } from "./types";
 
@@ -17,7 +11,7 @@ const isOffice = (user: { role?: string }): user is OfficeUser =>
 
 // Linking the AI office (Kantor AI desktop app) to an account, like a TV login:
 // the office shows a code, the owner allows it in josh-vault, the office gets a
-// workspace-limited token it can be disconnected from at any time.
+// limited token (team workspaces only) it can be disconnected from at any time.
 export const officeModule = new Elysia({ prefix: "/office" })
 	// ── Public: called by the office before it has a token ───────────────────
 	.post("/pair/start", ({ body }) => OfficeService.start(body.deviceName), {
@@ -37,20 +31,15 @@ export const officeModule = new Elysia({ prefix: "/office" })
 			)
 			.post(
 				"/pair/:code/approve",
-				({ user, params: { code }, body }) =>
-					OfficeService.approve(code, user, body.workspace),
-				{ params: pairCodeParam, body: pairApproveBody },
+				({ user, params: { code } }) => OfficeService.approve(code, user),
+				{ params: pairCodeParam },
 			)
 			.post(
 				"/pair/:code/deny",
 				({ user, params: { code } }) => OfficeService.deny(code, user),
 				{ params: pairCodeParam },
 			)
-			.get(
-				"/connections",
-				({ user, query }) => OfficeService.list(user.sub, query.workspace),
-				{ query: connectionQuery },
-			)
+			.get("/connections", ({ user }) => OfficeService.list(user.sub))
 			.delete(
 				"/connections/:id",
 				({ user, params: { id } }) => OfficeService.revoke(id, user),

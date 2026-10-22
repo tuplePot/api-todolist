@@ -80,6 +80,8 @@ export const agentUpdate = t.Partial(
 export const agentQuery = t.Object({
 	workspace: objectId,
 	team: t.Optional(objectId),
+	/** Only agents that may take tickets of this project (its room or a general one). */
+	project: t.Optional(objectId),
 	projectAccess: t.Optional(projectAccess),
 	search: t.Optional(t.String({ maxLength: 100 })),
 	includeArchived: t.Optional(t.BooleanString()),

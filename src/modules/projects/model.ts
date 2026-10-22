@@ -5,6 +5,17 @@ import type { IProject } from "./types";
 
 // ─── TypeBox schemas ──────────────────────────────────────────────────────────
 
+/** Max code folders per project (1 main + 5 related, same as the AI office). */
+export const REPO_PATHS_MAX = 6;
+
+/** One code folder of a project, e.g. { label: "Backend", path: "D:\\code\\api" }. */
+const repoPathEntry = t.Object({
+	label: t.String({ minLength: 1, maxLength: 40 }),
+	path: t.String({ minLength: 1, maxLength: 500 }),
+});
+
+const repoPathList = t.Array(repoPathEntry, { maxItems: REPO_PATHS_MAX });
+
 export const projectCreate = t.Object({
 	name: t.String({ minLength: 1, maxLength: 120 }),
 	key: t.Optional(t.String({ minLength: 1, maxLength: 10 })),
@@ -14,6 +25,7 @@ export const projectCreate = t.Object({
 	relatedRepoPaths: t.Optional(
 		t.Array(t.String({ minLength: 1, maxLength: 500 }), { maxItems: 5 }),
 	),
+	repoPaths: t.Optional(repoPathList),
 	workspace: objectId,
 });
 
@@ -27,6 +39,7 @@ export const projectUpdate = t.Partial(
 		relatedRepoPaths: t.Array(t.String({ minLength: 1, maxLength: 500 }), {
 			maxItems: 5,
 		}),
+		repoPaths: repoPathList,
 	}),
 );
 
