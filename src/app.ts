@@ -8,6 +8,7 @@ import { docsModule } from "./modules/docs";
 // Register the User schema so `populate('assignedTo'|'createdBy'|'user')` resolves.
 import "./modules/users/model";
 
+import { agentSkillsModule } from "./modules/agent-skills";
 import { agentTeamsModule } from "./modules/agent-teams";
 import { agentsModule } from "./modules/agents";
 import { changelogsModule } from "./modules/changelogs";
@@ -57,6 +58,7 @@ const app = new Elysia()
 				.use(sharedNotesModule) // /api/shared-notes
 				.use(changelogsModule) // /api/changelogs
 				.use(agentTeamsModule) // /api/agent-teams
+				.use(agentSkillsModule) // /api/agent-skills
 				.use(agentsModule) // /api/agents
 				.use(officeModule), // /api/office (AI office pairing)
 	);

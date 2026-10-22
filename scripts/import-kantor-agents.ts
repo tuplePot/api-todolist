@@ -3,13 +3,17 @@
  *
  * Reads `kantor/config.json` (employees[]) and each employee's
  * `kantor/karyawan/<id>/CLAUDE.md`, then calls the running API:
- *   - POST /api/agent-teams  one team per distinct `division`
- *   - POST /api/agents       one agent per employee (slug = employee id,
- *                            rolePrompt = CLAUDE.md, mission = "## Mission")
+ *   - POST /api/agent-teams   one team per distinct `division`
+ *   - POST /api/agent-skills  one skill per distinct `role`: the CLAUDE.md of
+ *                             the first employee with that role, with their
+ *                             name swapped for {{AGENT_NAME}}
+ *   - POST /api/agents        one agent per employee (slug = employee id,
+ *                             linked to its role's skill, mission = "## Mission")
  *
  * Everything goes through the API, so its validation and owner/admin rules
- * apply. Idempotent: teams are matched by name, agents by slug (archived ones
- * included). Existing agents are skipped unless you pass `--update`.
+ * apply. Idempotent: teams are matched by name, skills by role, agents by slug
+ * (archived ones included). Existing skills and agents are skipped unless you
+ * pass `--update`.
  *
  * Needs the API running (`bun run dev`). Auth uses the service API key:
  * Bun loads this project's `.env`, so API_KEY / API_USER_ID are picked up.
@@ -29,6 +33,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { roleKeyOf, templatizePrompt } from "../src/modules/agent-skills/prompt";
 
 interface KantorEmployee {
 	id: string;
@@ -58,6 +63,7 @@ type WorkspaceDoc = Doc & {
 	members: { user: string; role: string }[];
 };
 type AgentDoc = Doc & { slug: string; isArchived: boolean };
+type SkillDoc = Doc & { role: string; prompt?: string };
 
 const args = new Set(process.argv.slice(2));
 const DRY = args.has("--dry");
@@ -230,6 +236,56 @@ async function main() {
 		teamIdByDivision.set(division, team._id);
 	}
 
+	// ── Skills (one shared role prompt per role) ───────────────────────────
+	const existingSkills = await api<SkillDoc[]>(
+		"GET",
+		`/agent-skills?workspace=${workspace}`,
+	);
+	const skillIdByRole = new Map<string, string | null>(
+		existingSkills.map((s) => [roleKeyOf(s.role), s._id]),
+	);
+	const promptByRole = new Map<string, { role: string; prompt: string }>();
+	for (const e of employees) {
+		const role = (e.role || "Employee").slice(0, 120);
+		const name = (e.name || titleCase(e.id)).slice(0, 80);
+		const prompt = templatizePrompt(readRolePrompt(e.id), name);
+		const key = roleKeyOf(role);
+		const first = promptByRole.get(key);
+		if (!first) {
+			if (prompt.trim()) promptByRole.set(key, { role, prompt });
+		} else if (prompt.trim() && prompt !== first.prompt) {
+			console.warn(
+				`  ! ${e.id}: CLAUDE.md differs from the first "${role}" prompt; the first one is used for the shared skill`,
+			);
+		}
+	}
+
+	for (const [key, { role, prompt }] of promptByRole) {
+		const found = skillIdByRole.get(key);
+		if (found && !UPDATE) {
+			console.log(`= skill  ${role}`);
+			continue;
+		}
+		if (DRY) {
+			console.log(`${found ? "~" : "+"} skill  ${role}`);
+			if (!found) skillIdByRole.set(key, null);
+			continue;
+		}
+		if (found) {
+			await api("PATCH", `/agent-skills/${found}`, { prompt });
+			console.log(`~ skill  ${role}`);
+		} else {
+			const skill = await api<Doc>("POST", "/agent-skills", {
+				name: role.slice(0, 80),
+				role,
+				prompt,
+				workspace,
+			});
+			skillIdByRole.set(key, skill._id);
+			console.log(`+ skill  ${role}`);
+		}
+	}
+
 	// ── Agents ─────────────────────────────────────────────────────────────
 	const existingAgents = await api<AgentDoc[]>(
 		"GET",
@@ -241,12 +297,15 @@ async function main() {
 	for (const [i, e] of employees.entries()) {
 		const slug = e.id.toLowerCase();
 		const rolePrompt = readRolePrompt(e.id);
+		const role = (e.role || "Employee").slice(0, 120);
+		// Known skill → link it; otherwise the API picks the role's skill itself.
+		const skillId = skillIdByRole.get(roleKeyOf(role));
 		const fields = {
 			name: (e.name || titleCase(e.id)).slice(0, 80),
-			role: (e.role || "Employee").slice(0, 120),
+			role,
 			team: e.division ? (teamIdByDivision.get(e.division) ?? null) : null,
 			mission: (e.mission || extractMission(rolePrompt)).slice(0, 500),
-			rolePrompt,
+			...(skillId ? { skill: skillId } : {}),
 			...(e.color && HEX_RE.test(e.color) ? { color: e.color } : {}),
 			vrm: e.vrm ?? null,
 			model: e.model && MODEL_RE.test(e.model) ? e.model : null,

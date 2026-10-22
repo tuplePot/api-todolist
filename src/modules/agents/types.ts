@@ -16,7 +16,15 @@ export interface IAgent {
 	team?: Types.ObjectId | null;
 	/** One-line mission; the office router uses it to pick who handles a message. */
 	mission?: string;
-	/** Full role prompt (the employee's CLAUDE.md / AGENTS.md). */
+	/**
+	 * Shared role prompt (AgentSkill) for this agent's role. The office gets the
+	 * skill's prompt with `{{AGENT_NAME}}` replaced by this agent's name.
+	 */
+	skill?: Types.ObjectId | null;
+	/**
+	 * Legacy: the agent's own full prompt from before skills. Only read as a
+	 * fallback when no skill is linked; removed as soon as one is.
+	 */
 	rolePrompt?: string;
 	color?: string;
 	/** Optional `.vrm` file name inside the office's `karakter/` folder. */

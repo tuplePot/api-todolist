@@ -14,6 +14,8 @@ const AgentSchema = new Schema<IAgent>(
 		role: { type: String, required: true, trim: true, maxlength: 120 },
 		team: { type: Schema.Types.ObjectId, ref: "AgentTeam", default: null },
 		mission: { type: String, maxlength: 500 },
+		skill: { type: Schema.Types.ObjectId, ref: "AgentSkill", default: null },
+		// Legacy per-agent prompt; new agents use `skill` instead.
 		rolePrompt: { type: String, maxlength: 20000 },
 		color: { type: String },
 		vrm: { type: String, default: null },
@@ -46,5 +48,6 @@ const AgentSchema = new Schema<IAgent>(
 AgentSchema.index({ workspace: 1, slug: 1 }, { unique: true });
 AgentSchema.index({ workspace: 1, isArchived: 1, position: 1 });
 AgentSchema.index({ team: 1 });
+AgentSchema.index({ skill: 1 });
 
 export const Agent = mongoose.model<IAgent>("Agent", AgentSchema);

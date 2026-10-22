@@ -40,7 +40,8 @@ export const agentCreate = t.Object({
 	role: t.String({ minLength: 1, maxLength: 120 }),
 	team: t.Optional(t.Union([objectId, t.Null()])),
 	mission: t.Optional(t.String({ maxLength: 500 })),
-	rolePrompt: t.Optional(t.String({ maxLength: 20000 })),
+	// Left out → the active skill of the agent's role is linked automatically.
+	skill: t.Optional(t.Union([objectId, t.Null()])),
 	color: t.Optional(hexColor),
 	vrm: t.Optional(t.Union([t.String({ maxLength: 200 }), t.Null()])),
 	model: t.Optional(
@@ -62,7 +63,7 @@ export const agentUpdate = t.Partial(
 		role: t.String({ minLength: 1, maxLength: 120 }),
 		team: t.Union([objectId, t.Null()]),
 		mission: t.String({ maxLength: 500 }),
-		rolePrompt: t.String({ maxLength: 20000 }),
+		skill: t.Union([objectId, t.Null()]),
 		color: t.Union([hexColor, t.Null()]),
 		vrm: t.Union([t.String({ maxLength: 200 }), t.Null()]),
 		model: t.Union([
